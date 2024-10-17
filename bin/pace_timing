@@ -8,11 +8,11 @@ from pyace.utils.timing import run_timing_test
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="pace_timing",
-        description="Utility to run the single-CPU timing test for PACE (.yaml) potential ",
+        description="Run a single-CPU timing test for PACE (.yaml) potential files.",
     )
     parser.add_argument(
         "potential_file",
-        help="B-basis file name (.yaml)",
+        help="Path to one or more B-basis files (.yaml) to be tested.",
         type=str,
         nargs="+",
         default=[],
@@ -20,7 +20,7 @@ def build_parser():
     parser.add_argument(
         "-n",
         "--nstructures",
-        help="number of structures",
+        help="Number of structures to use in the timing test (default: 10).",
         type=int,
         default=10,
     )
