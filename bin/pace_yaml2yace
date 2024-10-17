@@ -7,11 +7,11 @@ from pyace import ACEBBasisSet
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="pace_yaml2yace",
-        description="Conversion utility from B-basis (.yaml file) to new-style Ctilde-basis (.yace file)",
+        description="Utility to convert B-basis YAML files to Ctilde-basis YACE files.",
     )
     parser.add_argument(
         "input",
-        help="input B-basis file name (.yaml)",
+        help="Input B-basis YAML file(s) to be converted. Accepts multiple files.",
         type=str,
         nargs="+",
         default=[],
@@ -19,7 +19,7 @@ def build_parser():
     parser.add_argument(
         "-o",
         "--output",
-        help="output Ctilde-basis file name (.yace)",
+        help="Output Ctilde-basis YACE file name. If not specified, the input file name with a .yace extension will be used.",
         type=str,
         default="",
     )
