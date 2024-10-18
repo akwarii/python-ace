@@ -239,7 +239,7 @@ def main() -> None:
             for key, value in vasp_output_dict.items():
                 data[key] += value
             logger.info(
-                f"Successfully collected {len(vasp_output_dict["name"])} entries from {f}"
+                f"Successfully collected {len(vasp_output_dict['name'])} entries from {f}"
             )
         except Exception as e:
             logger.error(f"Error while trying to read {f}: {e}")
@@ -298,21 +298,21 @@ def main() -> None:
     logger.info(f"Mean number of atoms per structure: {number_atoms / len(df):.3f}")
 
     logger.info(
-        f"Average energy per atom: {df["energy_corrected_per_atom"].mean():.3f} eV/atom"
+        f"Average energy per atom: {df['energy_corrected_per_atom'].mean():.3f} eV/atom"
     )
     logger.info(
-        f"Std. dev. of energy per atom: {df["energy_corrected_per_atom"].std():.3f} eV/atom"
+        f"Std. dev. of energy per atom: {df['energy_corrected_per_atom'].std():.3f} eV/atom"
     )
     logger.info(
-        f"Minimum / maximum energy per atom: {df["energy_corrected_per_atom"].min():.3f} / {df["energy_corrected_per_atom"].max():.3f} eV/atom"
+        f"Minimum / maximum energy per atom: {df['energy_corrected_per_atom'].min():.3f} / {df['energy_corrected_per_atom'].max():.3f} eV/atom"
     )
 
-    logger.info(f"Average force magnitude: {df["magnitude_forces"].mean():.3f} eV/A")
+    logger.info(f"Average force magnitude: {df['magnitude_forces'].mean():.3f} eV/A")
     logger.info(
-        f"Std. dev. of force magnitude: {df["magnitude_forces"].std():.3f} eV/A"
+        f"Std. dev. of force magnitude: {df['magnitude_forces'].std():.3f} eV/A"
     )
     logger.info(
-        f"Minimum / maximum force magnitude: {df["magnitude_forces"].min():.3f} / {df["magnitude_forces"].max():.3f} eV/A"
+        f"Minimum / maximum force magnitude: {df['magnitude_forces'].min():.3f} / {df['magnitude_forces'].max():.3f} eV/A"
     )
 
     # Clean up and store the dataset
