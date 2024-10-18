@@ -45,12 +45,21 @@ def prepare_test_basis_configuration_extended():
     bBasisConfiguration.deltaSplineBins = 0.001
     block = create_block(NLMAX=NLMAX, NRADMAX=NRADMAX, NRADBASE=NRADBASE, NDENS=1)
     block.funcspecs = [
-        BBasisFunctionSpecification(elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.]),
-        BBasisFunctionSpecification(elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1.]),
-
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[1, 1], ls=[0], coeffs=[0.01]),
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[1, 2], ls=[1], coeffs=[0.01]),
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[2, 2], ls=[0], coeffs=[0.01]),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.0]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1.0]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[1, 1], ls=[0], coeffs=[0.01]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[1, 2], ls=[1], coeffs=[0.01]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[2, 2], ls=[0], coeffs=[0.01]
+        ),
     ]
     bBasisConfiguration.funcspecs_blocks = [block]
     return bBasisConfiguration
@@ -66,7 +75,9 @@ def test_compute_active_set_by_batches_multispecies():
     elements_to_index_map = bbasis.elements_to_index_map
     cutoffmax = bbasis.cutoffmax
 
-    generate_atomic_env_column(df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map)
+    generate_atomic_env_column(
+        df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map
+    )
     df = df.sample(frac=1, random_state=42)
     # batch_size = 50
     atomic_env_list = df["atomic_env"]
@@ -78,20 +89,27 @@ def test_compute_active_set_by_batches_multispecies():
 
     # structure_ind_batches = [b.values for b in structure_ind_batches]
 
-    (best_gamma, best_active_sets_dict, best_active_sets_si_dict) = \
-        compute_active_set_by_batches(
-            bbasis,
-            atomic_env_list=atomic_env_list,
-            structure_ind_list=structure_ind_list,
-            n_batches=2,
-        )
+    (
+        best_gamma,
+        best_active_sets_dict,
+        best_active_sets_si_dict,
+    ) = compute_active_set_by_batches(
+        bbasis,
+        atomic_env_list=atomic_env_list,
+        structure_ind_list=structure_ind_list,
+        n_batches=2,
+    )
     print("best_gamma=", best_gamma)
     best_gamma_expected = {1: 1.0004078686401439, 0: 1.0000220624877256}
     active_set_shape_expected = {0: (9, 9), 1: (8, 8)}
 
     for st in [0, 1]:
         assert np.allclose(best_gamma_expected[st], best_gamma[st])
-        print("best_active_sets_dict[{}].shape={}".format(st, best_active_sets_dict[st].shape))
+        print(
+            "best_active_sets_dict[{}].shape={}".format(
+                st, best_active_sets_dict[st].shape
+            )
+        )
         assert active_set_shape_expected[st] == best_active_sets_dict[st].shape
 
 
@@ -124,23 +142,32 @@ def test_compute_active_set_by_batches_multispecies_extra_projections():
     # structure_ind_batches = np.array_split(structure_ind_list, nsplits)
     # structure_ind_batches = [b.values for b in structure_ind_batches]
 
-    A0_projections_dict_extra = compute_B_projections(bbasis, atomic_env_list=df_extra["ase_atoms"])
+    A0_projections_dict_extra = compute_B_projections(
+        bbasis, atomic_env_list=df_extra["ase_atoms"]
+    )
 
-    (best_gamma, best_active_sets_dict, best_active_sets_si_dict) = \
-        compute_active_set_by_batches(
-            bbasis,
-            atomic_env_list=atomic_env_list,
-            structure_ind_list=structure_ind_list,
-            n_batches=2,
-            extra_A_active_set_dict=A0_projections_dict_extra
-        )
+    (
+        best_gamma,
+        best_active_sets_dict,
+        best_active_sets_si_dict,
+    ) = compute_active_set_by_batches(
+        bbasis,
+        atomic_env_list=atomic_env_list,
+        structure_ind_list=structure_ind_list,
+        n_batches=2,
+        extra_A_active_set_dict=A0_projections_dict_extra,
+    )
     print("best_gamma=", best_gamma)
     best_gamma_expected = {0: 1.000022062491731, 1: 1.0000000000013989}
     active_set_shape_expected = {0: (9, 9), 1: (8, 8)}
 
     for st in [0, 1]:
         assert np.allclose(best_gamma_expected[st], best_gamma[st])
-        print("best_active_sets_dict[{}].shape={}".format(st, best_active_sets_dict[st].shape))
+        print(
+            "best_active_sets_dict[{}].shape={}".format(
+                st, best_active_sets_dict[st].shape
+            )
+        )
         assert active_set_shape_expected[st] == best_active_sets_dict[st].shape
 
 
@@ -154,7 +181,9 @@ def test_compute_active_set_multispecies():
     elements_to_index_map = bbasis.elements_to_index_map
     cutoffmax = bbasis.cutoffmax
 
-    generate_atomic_env_column(df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map)
+    generate_atomic_env_column(
+        df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map
+    )
     atomic_env_list = df["atomic_env"]
 
     A0_projections_dict = compute_B_projections(bbasis, atomic_env_list=atomic_env_list)
@@ -166,7 +195,11 @@ def test_compute_active_set_multispecies():
     active_set_shape_expected = {0: (9, 9), 1: (8, 8)}
 
     for st in [0, 1]:
-        print("best_active_sets_dict[{}].shape={}".format(st, best_active_sets_dict[st].shape))
+        print(
+            "best_active_sets_dict[{}].shape={}".format(
+                st, best_active_sets_dict[st].shape
+            )
+        )
         assert active_set_shape_expected[st] == best_active_sets_dict[st].shape
 
 
@@ -185,21 +218,31 @@ def test_compute_active_set_multispecies_extra_projections():
     atomic_env_list = df["atomic_env"]
     atomic_env_list_extra = df_extra["atomic_env"]
 
-    A0_projections_dict, str_ind_dict = compute_B_projections(bbasis, atomic_env_list=df["ase_atoms"],
-                                                              structure_ind_list=df.index)
-    A0_projections_dict_extra = compute_B_projections(bbasis, atomic_env_list=df_extra["ase_atoms"])
+    A0_projections_dict, str_ind_dict = compute_B_projections(
+        bbasis, atomic_env_list=df["ase_atoms"], structure_ind_list=df.index
+    )
+    A0_projections_dict_extra = compute_B_projections(
+        bbasis, atomic_env_list=df_extra["ase_atoms"]
+    )
     assert isinstance(A0_projections_dict, dict)
     assert isinstance(A0_projections_dict_extra, dict)
     print("A0_projections_dict.keys=", A0_projections_dict.keys())
     print("A0_projections_dict_extra.keys=", A0_projections_dict_extra.keys())
 
-    best_active_sets_dict, sel_str_inds_dict = compute_active_set(A0_projections_dict, structure_ind_dict=str_ind_dict,
-                                                                  extra_A0_projections_dict=A0_projections_dict_extra)
+    best_active_sets_dict, sel_str_inds_dict = compute_active_set(
+        A0_projections_dict,
+        structure_ind_dict=str_ind_dict,
+        extra_A0_projections_dict=A0_projections_dict_extra,
+    )
 
     active_set_shape_expected = {0: (9, 9), 1: (8, 8)}
 
     for st in [0, 1]:
-        print("best_active_sets_dict[{}].shape={}".format(st, best_active_sets_dict[st].shape))
+        print(
+            "best_active_sets_dict[{}].shape={}".format(
+                st, best_active_sets_dict[st].shape
+            )
+        )
         assert active_set_shape_expected[st] == best_active_sets_dict[st].shape
         assert len(sel_str_inds_dict[st]) == len(best_active_sets_dict[st])
 
@@ -214,7 +257,9 @@ def test_compute_active_set_singlespecies():
     elements_to_index_map = bbasis.elements_to_index_map
     cutoffmax = bbasis.cutoffmax
 
-    generate_atomic_env_column(df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map)
+    generate_atomic_env_column(
+        df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map
+    )
     atomic_env_list = df["atomic_env"]
 
     A0_projections_dict = compute_B_projections(bbasis, atomic_env_list=atomic_env_list)
@@ -226,7 +271,11 @@ def test_compute_active_set_singlespecies():
     active_set_shape_expected = {0: (5, 5)}
 
     for st in [0]:
-        print("best_active_sets_dict[{}].shape={}".format(st, best_active_sets_dict[st].shape))
+        print(
+            "best_active_sets_dict[{}].shape={}".format(
+                st, best_active_sets_dict[st].shape
+            )
+        )
         assert active_set_shape_expected[st] == best_active_sets_dict[st].shape
 
 
@@ -240,12 +289,17 @@ def test_compute_projections_multispecies_forces():
     elements_to_index_map = bbasis.elements_to_index_map
     cutoffmax = bbasis.cutoffmax
 
-    generate_atomic_env_column(df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map)
+    generate_atomic_env_column(
+        df, cutoff=cutoffmax, elements_mapper_dict=elements_to_index_map
+    )
     atomic_env_list = df["atomic_env"]
 
-    A0_projections_dict, forces_dict = compute_B_projections(bbasis, atomic_env_list=atomic_env_list,
-                                                             compute_forces_dict=True)
-    ref_forces_dict = extract_reference_forces_dict(df["ase_atoms"], df["forces"], elements_to_index_map)
+    A0_projections_dict, forces_dict = compute_B_projections(
+        bbasis, atomic_env_list=atomic_env_list, compute_forces_dict=True
+    )
+    ref_forces_dict = extract_reference_forces_dict(
+        df["ase_atoms"], df["forces"], elements_to_index_map
+    )
 
     assert isinstance(A0_projections_dict, dict)
     print("A0_projections_dict.keys=", A0_projections_dict.keys())
@@ -256,7 +310,9 @@ def test_compute_projections_multispecies_forces():
     forces_dict_shape_expected = {0: (231, 3), 1: (218, 3)}
     for st in [0, 1]:
         print("forces_dict[{}].shape={}".format(st, forces_dict[st].shape))
-        print("A0_projections_dict[{}].shape={}".format(st, A0_projections_dict[st].shape))
+        print(
+            "A0_projections_dict[{}].shape={}".format(st, A0_projections_dict[st].shape)
+        )
         assert A0_projections_dict[st].shape[0] == forces_dict_shape_expected[st][0]
         assert forces_dict_shape_expected[st] == forces_dict[st].shape
 
@@ -273,7 +329,9 @@ def test_extract_reference_forces_dict():
     bbasis = ACEBBasisSet(bBasisConfiguration)
     elements_to_index_map = bbasis.elements_to_index_map
 
-    forces_dict = extract_reference_forces_dict(df["ase_atoms"], df["forces"], elements_to_index_map)
+    forces_dict = extract_reference_forces_dict(
+        df["ase_atoms"], df["forces"], elements_to_index_map
+    )
     assert isinstance(forces_dict, dict)
     print("forces_dict.keys=", forces_dict.keys())
 

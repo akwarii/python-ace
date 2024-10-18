@@ -6,8 +6,15 @@ import sys
 
 import pytest
 from pyace.const import *
-from pyace.preparedata import save_dataframe, compute_convexhull_dist, ExternalWeightingPolicy, ACEDataset, \
-    EnergyBasedWeightingPolicy, apply_weights, adjust_aug_weights
+from pyace.preparedata import (
+    save_dataframe,
+    compute_convexhull_dist,
+    ExternalWeightingPolicy,
+    ACEDataset,
+    EnergyBasedWeightingPolicy,
+    apply_weights,
+    adjust_aug_weights,
+)
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -17,9 +24,15 @@ def test_ACEDataset():
         filename="df-FHI-aims_PBE_tight-Al-ref.pckl.gzip",
         datapath="tests",
     )
-    ace_ds = ACEDataset(data_config, evaluator_name='tensorpot', weighting_policy_spec=EnergyBasedWeightingPolicy())
+    ace_ds = ACEDataset(
+        data_config,
+        evaluator_name="tensorpot",
+        weighting_policy_spec=EnergyBasedWeightingPolicy(),
+    )
 
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     assert "w_energy" not in df0
     assert "w_forces" not in df0
     assert "w_factor" not in df0
@@ -33,7 +46,9 @@ def test_ACEDataset():
 def test_StructuresDatasetSpecification_weight_factor():
     # test that "w_factor" column remains in df after processing and final weights are multiplied by w_factor
 
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
 
     df1 = df0.copy()
     df1["w_factor"] = np.random.rand(len(df0))
@@ -55,8 +70,10 @@ def test_StructuresDatasetSpecification_weight_factor():
 
 
 def test_EnergyBasedWeightingPolicy_n_upper_n_lower():
-    """ Test that for EnergyBasedWeightingPolicy(n_lower=1, n_upper=1)  only 2 structures remain"""
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    """Test that for EnergyBasedWeightingPolicy(n_lower=1, n_upper=1)  only 2 structures remain"""
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     print(len(df0))
     print(df0["energy_corrected_per_atom"].sort_values())
     assert "w_energy" not in df0
@@ -70,7 +87,9 @@ def test_EnergyBasedWeightingPolicy_n_upper_n_lower():
 
 
 def test_EnergyBasedWeightingPolicy_n_lower_high():
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     print(len(df0))  # 6
     print(df0["energy_corrected_per_atom"].sort_values())
     assert "w_energy" not in df0
@@ -85,7 +104,9 @@ def test_EnergyBasedWeightingPolicy_n_lower_high():
 
 
 def test_EnergyBasedWeightingPolicy_n_lower_high_nupper_0():
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     print(len(df0))  # 6
     print(df0["energy_corrected_per_atom"].sort_values())
     assert "w_energy" not in df0
@@ -100,7 +121,9 @@ def test_EnergyBasedWeightingPolicy_n_lower_high_nupper_0():
 
 
 def test_EnergyBasedWeightingPolicy_nlower_high_nupper_high():
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     print(len(df0))  # 6
     print(df0["energy_corrected_per_atom"].sort_values())
     assert "w_energy" not in df0
@@ -114,8 +137,9 @@ def test_EnergyBasedWeightingPolicy_nlower_high_nupper_high():
     assert len(dfsel) == 6
 
 
-@pytest.mark.parametrize("fname",
-                         ["df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", "df_AlNi(murn).pckl.gzip"])
+@pytest.mark.parametrize(
+    "fname", ["df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", "df_AlNi(murn).pckl.gzip"]
+)
 def test_compute_convexhull_dist(fname):
     df0 = pd.read_pickle("tests/" + fname, compression="gzip")
 
@@ -127,20 +151,40 @@ def test_compute_convexhull_dist(fname):
 
 
 def test_save_dataframe():
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     filename = "tests/test_data/test_save_dataframe.pckl.gzip"
     save_dataframe(df0, filename)
     assert os.path.isfile(filename)
 
 
 def test_ExternalWeightingPolicy():
-    df0 = pd.read_pickle("tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip")
+    df0 = pd.read_pickle(
+        "tests/df-FHI-aims_PBE_tight-Al-ref.pckl.gzip", compression="gzip"
+    )
     print("columns=", df0.columns.tolist())
     assert sorted(df0.columns.tolist()) == sorted(
-        ['prop_id', 'structure_id', 'gen_id', 'PROTOTYPE_NAME', 'COORDINATES_TYPE', '_COORDINATES', '_OCCUPATION',
-         'NUMBER_OF_ATOMS', '_VALUE', 'pbc', 'energy', 'forces', 'energy_corrected', 'energy_corrected_per_atom',
-         'cell', 'ase_atoms', 'atomic_env', 'tp_atoms']
-
+        [
+            "prop_id",
+            "structure_id",
+            "gen_id",
+            "PROTOTYPE_NAME",
+            "COORDINATES_TYPE",
+            "_COORDINATES",
+            "_OCCUPATION",
+            "NUMBER_OF_ATOMS",
+            "_VALUE",
+            "pbc",
+            "energy",
+            "forces",
+            "energy_corrected",
+            "energy_corrected_per_atom",
+            "cell",
+            "ase_atoms",
+            "atomic_env",
+            "tp_atoms",
+        ]
     )
 
     df0[EWEIGHTS_COL] = 1.0

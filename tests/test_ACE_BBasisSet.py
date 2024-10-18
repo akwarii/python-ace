@@ -7,19 +7,22 @@ import numpy as np
 from pyace.evaluator import ACEBEvaluator, ACECTildeEvaluator
 import pyace.atomicenvironment as pe
 from pyace.calculator import ACECalculator
-from pyace.basis import (ACECTildeBasisSet,
-                         ACECTildeBasisFunction,
-                         ACEBBasisSet,
-                         BBasisConfiguration,
-                         BBasisFunctionSpecification,
-                         BBasisFunctionsSpecificationBlock, FexpShiftedScaled)
+from pyace.basis import (
+    ACECTildeBasisSet,
+    ACECTildeBasisFunction,
+    ACEBBasisSet,
+    BBasisConfiguration,
+    BBasisFunctionSpecification,
+    BBasisFunctionsSpecificationBlock,
+    FexpShiftedScaled,
+)
 
 from ase import Atoms
 
 
 def test_Fexp():
     xs = -np.arange(-1, 12)
-    xs = np.power(10., xs)
+    xs = np.power(10.0, xs)
 
     xs = np.sort(np.concatenate([xs, -xs]))
     print(xs)
@@ -33,18 +36,62 @@ def test_Fexp():
     print("FS=", FS)
     print("DFS=", DFS)
 
-    F_ref = [-3.1622567547927845, -0.8610338964462405, -0.11872869271732522, -0.012431936894573337,
-             -0.0012493131967951099, -0.0001249931256978587, -1.2499931250686824e-05, -1.2499993124470699e-06,
-             -1.249999931340895e-07, -1.2499999924031613e-08, -1.24999993689201e-09, -1.2500001034254637e-10,
-             -1.2500001034254637e-11, 1.2500001034254637e-11, 1.2500001034254637e-10, 1.24999993689201e-09,
-             1.2499999924031613e-08, 1.249999931340895e-07, 1.2499993124470699e-06, 1.2499931250686824e-05,
-             0.0001249931256978587, 0.0012493131967951099, 0.012431936894573337, 0.11872869271732522,
-             0.8610338964462405, 3.1622567547927845]
-    DF_ref = [0.15813469865510948, 0.6184148713968093, 1.1298188364982225, 1.2364549872082238, 1.2486270892661513,
-              1.2498625209330063, 1.2499862502093706, 1.2499986250020938, 1.249999862500021, 1.2499999862500002,
-              1.249999998625, 1.2499999998625, 1.24999999998625, 1.24999999998625, 1.2499999998625, 1.249999998625,
-              1.2499999862500002, 1.249999862500021, 1.2499986250020938, 1.2499862502093706, 1.2498625209330063,
-              1.2486270892661513, 1.2364549872082238, 1.1298188364982225, 0.6184148713968093, 0.15813469865510948]
+    F_ref = [
+        -3.1622567547927845,
+        -0.8610338964462405,
+        -0.11872869271732522,
+        -0.012431936894573337,
+        -0.0012493131967951099,
+        -0.0001249931256978587,
+        -1.2499931250686824e-05,
+        -1.2499993124470699e-06,
+        -1.249999931340895e-07,
+        -1.2499999924031613e-08,
+        -1.24999993689201e-09,
+        -1.2500001034254637e-10,
+        -1.2500001034254637e-11,
+        1.2500001034254637e-11,
+        1.2500001034254637e-10,
+        1.24999993689201e-09,
+        1.2499999924031613e-08,
+        1.249999931340895e-07,
+        1.2499993124470699e-06,
+        1.2499931250686824e-05,
+        0.0001249931256978587,
+        0.0012493131967951099,
+        0.012431936894573337,
+        0.11872869271732522,
+        0.8610338964462405,
+        3.1622567547927845,
+    ]
+    DF_ref = [
+        0.15813469865510948,
+        0.6184148713968093,
+        1.1298188364982225,
+        1.2364549872082238,
+        1.2486270892661513,
+        1.2498625209330063,
+        1.2499862502093706,
+        1.2499986250020938,
+        1.249999862500021,
+        1.2499999862500002,
+        1.249999998625,
+        1.2499999998625,
+        1.24999999998625,
+        1.24999999998625,
+        1.2499999998625,
+        1.249999998625,
+        1.2499999862500002,
+        1.249999862500021,
+        1.2499986250020938,
+        1.2499862502093706,
+        1.2498625209330063,
+        1.2486270892661513,
+        1.2364549872082238,
+        1.1298188364982225,
+        0.6184148713968093,
+        0.15813469865510948,
+    ]
 
     assert np.allclose(FS, F_ref)
     assert np.allclose(DFS, DF_ref)
@@ -102,7 +149,7 @@ def test_constructor_load_yaml():
 
 
 def test_trimer_r1_initilize_basis():
-    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [0], [], [1.])
+    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [0], [], [1.0])
     print(bfunc)
     block = BBasisFunctionsSpecificationBlock()
     block.block_name = "Al"
@@ -141,14 +188,17 @@ def test_trimer_r1_initilize_basis():
 
 
 def test_trimer_r1_initilize_basis_default_parameters():
-    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [1.])
+    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [1.0])
     print(bfunc)
     block = BBasisFunctionsSpecificationBlock()
     block.block_name = "Al"
     block.nradmaxi = 1
     block.lmaxi = 0
     block.npoti = "FinnisSinclair"
-    block.fs_parameters = [1, 1, ]
+    block.fs_parameters = [
+        1,
+        1,
+    ]
     block.rcutij = 8.7
     block.dcutij = 0.01
     block.NameOfCutoffFunctionij = "cos"
@@ -182,7 +232,7 @@ def test_trimer_r1_initilize_basis_default_parameters():
 
 
 def test_constructor_BBasisConfiguration():
-    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [1.])
+    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [1.0])
     print(bfunc)
     block = BBasisFunctionsSpecificationBlock()
     block.block_name = "Al"
@@ -238,8 +288,10 @@ def test_dimer_construction_basis():
     block.radcoefficients = [[[1]]]
 
     block.funcspecs = [
-        BBasisFunctionSpecification(["Al", "Al"], ns=[1], ls=[0], LS=[], coeffs=[1.]),
-        BBasisFunctionSpecification(["Al", "Al", "Al"], ns=[1, 1], ls=[0, 0], LS=[], coeffs=[2])
+        BBasisFunctionSpecification(["Al", "Al"], ns=[1], ls=[0], LS=[], coeffs=[1.0]),
+        BBasisFunctionSpecification(
+            ["Al", "Al", "Al"], ns=[1, 1], ls=[0, 0], LS=[], coeffs=[2]
+        ),
     ]
 
     basisConfiguration = BBasisConfiguration()
@@ -275,13 +327,16 @@ def test_dimer_construction_basis():
 
 
 def test_dimer_r1_initilize_bbasis_conv_to_ctilde_save_load():
-    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [0], [], [1.])
+    bfunc = BBasisFunctionSpecification(["Al", "Al"], [1], [0], [], [1.0])
     block = BBasisFunctionsSpecificationBlock()
     block.block_name = "Al"
     block.nradmaxi = 1
     block.lmaxi = 0
     block.npoti = "FinnisSinclair"
-    block.fs_parameters = [1, 1, ]
+    block.fs_parameters = [
+        1,
+        1,
+    ]
     block.rcutij = 8.7
     block.dcutij = 0.01
     block.NameOfCutoffFunctionij = "cos"
@@ -332,11 +387,23 @@ def test_trimer_r234_dens2_initilize_basis():
     block.radcoefficients = [[[1], [1], [1]]]
 
     block.funcspecs = [
-
-        BBasisFunctionSpecification(["Al", "Al", "Al"], ns=[1, 1], ls=[1, 1], LS=[], coeffs=[0.5, 0.5]),
-        BBasisFunctionSpecification(["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], LS=[0], coeffs=[0.5, 0.5]),
-        BBasisFunctionSpecification(["Al", "Al", "Al", "Al", "Al"], ns=[1, 1, 1, 1], ls=[1, 1, 1, 1], LS=[2, 2],
-                                    coeffs=[0.5, 0.5])
+        BBasisFunctionSpecification(
+            ["Al", "Al", "Al"], ns=[1, 1], ls=[1, 1], LS=[], coeffs=[0.5, 0.5]
+        ),
+        BBasisFunctionSpecification(
+            ["Al", "Al", "Al", "Al"],
+            ns=[1, 1, 1],
+            ls=[1, 1, 0],
+            LS=[0],
+            coeffs=[0.5, 0.5],
+        ),
+        BBasisFunctionSpecification(
+            ["Al", "Al", "Al", "Al", "Al"],
+            ns=[1, 1, 1, 1],
+            ls=[1, 1, 1, 1],
+            LS=[2, 2],
+            coeffs=[0.5, 0.5],
+        ),
     ]
 
     basisConfiguration = BBasisConfiguration()
@@ -417,10 +484,15 @@ def create_BBasisConfiguration(elm="Cu"):
     block.radparameters = [3.0]
     block.radcoefficients = [[[1], [1], [1]]]
     block.funcspecs = [
-        BBasisFunctionSpecification([elm] * 3, ns=[1, 1], ls=[1, 1], LS=[], coeffs=[0.5, 0.5]),
-        BBasisFunctionSpecification([elm] * 4, ns=[1, 1, 1], ls=[1, 1, 0], LS=[0], coeffs=[0.5, 0.5]),
-        BBasisFunctionSpecification([elm] * 5, ns=[1, 1, 1, 1], ls=[1, 1, 1, 1], LS=[2, 2],
-                                    coeffs=[0.5, 0.5])
+        BBasisFunctionSpecification(
+            [elm] * 3, ns=[1, 1], ls=[1, 1], LS=[], coeffs=[0.5, 0.5]
+        ),
+        BBasisFunctionSpecification(
+            [elm] * 4, ns=[1, 1, 1], ls=[1, 1, 0], LS=[0], coeffs=[0.5, 0.5]
+        ),
+        BBasisFunctionSpecification(
+            [elm] * 5, ns=[1, 1, 1, 1], ls=[1, 1, 1, 1], LS=[2, 2], coeffs=[0.5, 0.5]
+        ),
     ]
     basisConfiguration = BBasisConfiguration()
     basisConfiguration.deltaSplineBins = 0.001
@@ -430,7 +502,9 @@ def create_BBasisConfiguration(elm="Cu"):
 
 
 def test_get_set_state_BBasisFunctionSpecification():
-    spec1 = BBasisFunctionSpecification(["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5])
+    spec1 = BBasisFunctionSpecification(
+        ["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5]
+    )
     print(spec1)
     dump1 = pickle.dumps(spec1)
     spec2 = pickle.loads(dump1)
@@ -506,7 +580,10 @@ def test_to_BBasisConfiguration():
     # print(bBasisConfig)
     block = bBasisConfig.funcspecs_blocks[0]
     print("block.radcoefficients=", block.radcoefficients)
-    assert block.radcoefficients == [[[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]], [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]]]
+    assert block.radcoefficients == [
+        [[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]],
+        [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]],
+    ]
     print("crad.shape=", crad.shape)
     crad = np.transpose(crad, (0, 1, 4, 3, 2))
     print("crad.T=", crad)
@@ -517,13 +594,19 @@ def test_BBasisConfiguration_load_save():
     bBasisConfig.load("tests/Al-r1234l12_crad_dif.yaml")
     block = bBasisConfig.funcspecs_blocks[0]
     print(" block.radcoefficients =", block.radcoefficients)
-    assert block.radcoefficients == [[[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]], [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]]]
+    assert block.radcoefficients == [
+        [[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]],
+        [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]],
+    ]
 
     bBasisConfig.save("tmp_config.yaml")
     bBasisConfig2 = BBasisConfiguration()
     bBasisConfig2.load("tmp_config.yaml")
     block2 = bBasisConfig2.funcspecs_blocks[0]
-    assert block2.radcoefficients == [[[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]], [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]]]
+    assert block2.radcoefficients == [
+        [[1.0, 7.0], [2.0, 8.0], [3.0, 9.0]],
+        [[4.0, 10.0], [5.0, 11.0], [6.0, 12.0]],
+    ]
 
 
 def test_BBasisConfiguration_get_all_coeffs():
@@ -531,7 +614,24 @@ def test_BBasisConfiguration_get_all_coeffs():
     bBasisConfig.load("tests/Al-r1234l12_crad_dif.yaml")
     coeffs = bBasisConfig.get_all_coeffs()
     print("coeffs=", coeffs)
-    assert coeffs == [1.0, 7.0, 2.0, 8.0, 3.0, 9.0, 4.0, 10.0, 5.0, 11.0, 6.0, 12.0, 1.0, 2.0, 3.0, 4.0]
+    assert coeffs == [
+        1.0,
+        7.0,
+        2.0,
+        8.0,
+        3.0,
+        9.0,
+        4.0,
+        10.0,
+        5.0,
+        11.0,
+        6.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+    ]
 
 
 def test_BBasisConfiguration_get_func_coeffs():
@@ -563,8 +663,24 @@ def test_BBasisConfiguration_set_func_coeffs():
 
     acoeffs = bBasisConfig.get_all_coeffs()
     print("acoeffs=", acoeffs)
-    assert acoeffs == [1.0, 7.0, 2.0, 8.0, 3.0, 9.0, 4.0, 10.0, 5.0, 11.0, 6.0, 12.0,
-                       12.0, 12.0, 12.0, 12.0]
+    assert acoeffs == [
+        1.0,
+        7.0,
+        2.0,
+        8.0,
+        3.0,
+        9.0,
+        4.0,
+        10.0,
+        5.0,
+        11.0,
+        6.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+    ]
 
 
 def test_BBasisConfiguration_set_radial_coeffs():
@@ -580,8 +696,24 @@ def test_BBasisConfiguration_set_radial_coeffs():
 
     acoeffs = bBasisConfig.get_all_coeffs()
     print("acoeffs=", acoeffs)
-    assert acoeffs == [12.0, 12, 12, 12, 12, 12, 12, 12, 12.0, 12.0, 12.0, 12.0,
-                       1.0, 2.0, 3.0, 4.0]
+    assert acoeffs == [
+        12.0,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+    ]
 
 
 def test_BBasisConfiguration_mult_get_set_radial_coeffs():
@@ -597,11 +729,96 @@ def test_BBasisConfiguration_mult_get_set_radial_coeffs():
 
     acoeffs = bBasisConfig.get_all_coeffs()
     print("acoeffs=", acoeffs)
-    assert acoeffs == [12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 1.0, 2.0, 1.0, 1.0, 1.0, 12.0, 12.0, 12.0, 1.0, 2.0, 1.0,
-                       2.0, 1.0, 2.0, 1.0, 2.0, 12.0, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0,
-                       1.0, 1.0, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 12.0, 12.0, 12.0, 12.0, 1.0, 2.0, 1.0,
-                       2.0, 1.0, 2.0, 1.0, 2.0, 12.0, 12.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0,
-                       1.0, 2.0, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    assert acoeffs == [
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    ]
 
 
 def test_BBasisConfiguration_mult_get_set_func_coeffs():
@@ -617,12 +834,96 @@ def test_BBasisConfiguration_mult_get_set_func_coeffs():
 
     acoeffs = bBasisConfig.get_all_coeffs()
     print("acoeffs=", acoeffs)
-    assert acoeffs == [1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 12.0, 12.0, 12.0, 12.0, 12.0, 1.0, 2.0, 3.0, 12.0, 12.0, 12.0,
-                       12.0, 12.0, 12.0, 12.0, 12.0, 3.0, 2.0, 1.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0, 2.0, 3.0, 12.0,
-                       12.0, 12.0, 12.0, 1.0, 1.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0, 2.0, 3.0, 12.0,
-                       12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0,
-                       12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0, 12.0, 12.0, 12.0, 12.0, 1.0, 1.0, 12.0, 12.0,
-                       12.0, 12.0, 12.0, 12.0]
+    assert acoeffs == [
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        1.0,
+        2.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        3.0,
+        2.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        2.0,
+        3.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        2.0,
+        3.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.0,
+        1.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+    ]
 
 
 def test_BBasisConfiguration_TEST_radial_function_name():
@@ -631,11 +932,16 @@ def test_BBasisConfiguration_TEST_radial_function_name():
 
     radbases = [block.radbase for block in bBasisConfig.funcspecs_blocks]
     print("radbases =", radbases)
-    assert radbases == ['TEST_BesselFirst', 'TEST_BesselFirst', 'TEST_BesselSecond', 'TEST_BesselFirst']
+    assert radbases == [
+        "TEST_BesselFirst",
+        "TEST_BesselFirst",
+        "TEST_BesselSecond",
+        "TEST_BesselFirst",
+    ]
 
     bBasisConfig.save("tmp_config.yaml")
 
-    bbasisSet = ACEBBasisSet(bBasisConfig);
+    bbasisSet = ACEBBasisSet(bBasisConfig)
     print("bbasisSet=", bbasisSet)
 
 
@@ -687,7 +993,24 @@ def test_metadata():
 def test_BBasisConfiguration_copy():
     bBasisConfig = BBasisConfiguration("tests/Al-r1234l12_crad_dif.yaml")
     coeffs = bBasisConfig.get_all_coeffs()
-    assert coeffs == [1.0, 7.0, 2.0, 8.0, 3.0, 9.0, 4.0, 10.0, 5.0, 11.0, 6.0, 12.0, 1.0, 2.0, 3.0, 4.0]
+    assert coeffs == [
+        1.0,
+        7.0,
+        2.0,
+        8.0,
+        3.0,
+        9.0,
+        4.0,
+        10.0,
+        5.0,
+        11.0,
+        6.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+    ]
 
     copyBasis = bBasisConfig.copy()
     coeffs[0] = 10
@@ -696,7 +1019,24 @@ def test_BBasisConfiguration_copy():
 
     coeffs_copy = copyBasis.get_all_coeffs()
     print("coeffs_copy=", coeffs_copy)
-    assert coeffs_copy == [1.0, 7.0, 2.0, 8.0, 3.0, 9.0, 4.0, 10.0, 5.0, 11.0, 6.0, 12.0, 1.0, 2.0, 3.0, 4.0]
+    assert coeffs_copy == [
+        1.0,
+        7.0,
+        2.0,
+        8.0,
+        3.0,
+        9.0,
+        4.0,
+        10.0,
+        5.0,
+        11.0,
+        6.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+    ]
 
 
 def test_BBasisConfiguration_add():
@@ -778,10 +1118,18 @@ def test_BBasisConfiguration_total_number_of_functions():
 
 
 def test_BBasisFunctionSpecification_eq():
-    func1 = BBasisFunctionSpecification(["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5])
-    func2 = BBasisFunctionSpecification(["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5])
-    func3 = BBasisFunctionSpecification(["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.6])
-    func4 = BBasisFunctionSpecification(["Al", "Al", "Al"], ns=[1, 1], ls=[1, 1], coeffs=[0.5, 0.5])
+    func1 = BBasisFunctionSpecification(
+        ["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5]
+    )
+    func2 = BBasisFunctionSpecification(
+        ["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.5]
+    )
+    func3 = BBasisFunctionSpecification(
+        ["Al", "Al", "Al", "Al"], ns=[1, 1, 1], ls=[1, 1, 0], coeffs=[0.5, 0.6]
+    )
+    func4 = BBasisFunctionSpecification(
+        ["Al", "Al", "Al"], ns=[1, 1], ls=[1, 1], coeffs=[0.5, 0.5]
+    )
 
     assert func1 == func2
     assert func1 != func3
@@ -791,7 +1139,24 @@ def test_BBasisFunctionSpecification_eq():
 def test_BBasisFunctionsSpecificationBlock_set_get_coeff():
     bBasisConfig = BBasisConfiguration("tests/Al-r1234l12_crad_dif.yaml")
     all_coeffs = np.array(bBasisConfig.get_all_coeffs())
-    all_coeffs_ref = [1., 7., 2., 8., 3., 9., 4., 10., 5., 11., 6., 12., 1., 2., 3., 4.]
+    all_coeffs_ref = [
+        1.0,
+        7.0,
+        2.0,
+        8.0,
+        3.0,
+        9.0,
+        4.0,
+        10.0,
+        5.0,
+        11.0,
+        6.0,
+        12.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+    ]
     print("all_coeffs=", all_coeffs)
     assert np.allclose(all_coeffs, all_coeffs_ref)
     np.random.seed(42)
@@ -846,7 +1211,10 @@ def test_pickle_BBasisConfiguration():
     config.auxdata.double_arr_data = {"a": [1.1, 2.2, 3.3], "b": [4.4, 5.5, 6.6]}
     config.auxdata.string_data["a"] = "1.234"
     config.auxdata.string_data["b"] = "4.234"
-    config.auxdata.string_arr_data = {"a": ["1.1", "2.2", "3.3"], "b": ["4.4", "5.5", "6.6"]}
+    config.auxdata.string_arr_data = {
+        "a": ["1.1", "2.2", "3.3"],
+        "b": ["4.4", "5.5", "6.6"],
+    }
 
     print(config.auxdata.int_data)
     print(config.auxdata.int_arr_data)
@@ -862,7 +1230,7 @@ def test_pickle_BBasisConfiguration():
     unpickled_block = unpickled_config.funcspecs_blocks[0]
 
     assert config.deltaSplineBins == unpickled_config.deltaSplineBins
-    assert config.metadata['key'] == unpickled_config.metadata['key']
+    assert config.metadata["key"] == unpickled_config.metadata["key"]
 
     assert config.auxdata.int_data == unpickled_config.auxdata.int_data
     assert config.auxdata.double_data == unpickled_config.auxdata.double_data
@@ -913,8 +1281,14 @@ def test_BBasisConfiguration_auxdata():
     assert auxdata.string_data["s2"] == "Some another string"
 
     assert auxdata.int_arr_data == {"ia1": [1, 2, 3], "ia2": [100, -100, 0]}
-    assert auxdata.double_arr_data == {"da1": [1.1, 2.2, 3.3], "da2": [100.5, -100.1, 0.0]}
-    assert auxdata.string_arr_data == {"sa1": ["1.1", "2.2", "3.3"], "sa2": ["100.5", "-100.1", "0.0"]}
+    assert auxdata.double_arr_data == {
+        "da1": [1.1, 2.2, 3.3],
+        "da2": [100.5, -100.1, 0.0],
+    }
+    assert auxdata.string_arr_data == {
+        "sa1": ["1.1", "2.2", "3.3"],
+        "sa2": ["100.5", "-100.1", "0.0"],
+    }
 
     config.auxdata.int_data = {"i1": 1, "i2": 2, "i3": 3}
     assert config.auxdata.int_data == {"i1": 1, "i2": 2, "i3": 3}
@@ -922,25 +1296,38 @@ def test_BBasisConfiguration_auxdata():
     basis = ACEBBasisSet(config)
 
     auxdata = basis.auxdata
-    assert auxdata.int_data == {"i1": 1, "i2": 2, "i3":3}
+    assert auxdata.int_data == {"i1": 1, "i2": 2, "i3": 3}
     assert auxdata.double_data == {"d1": 1.5, "d2": 2.0}
     assert auxdata.string_data["s1"] == "Some string"
     assert auxdata.string_data["s2"] == "Some another string"
 
     assert auxdata.int_arr_data == {"ia1": [1, 2, 3], "ia2": [100, -100, 0]}
-    assert auxdata.double_arr_data == {"da1": [1.1, 2.2, 3.3], "da2": [100.5, -100.1, 0.0]}
-    assert auxdata.string_arr_data == {"sa1": ["1.1", "2.2", "3.3"], "sa2": ["100.5", "-100.1", "0.0"]}
+    assert auxdata.double_arr_data == {
+        "da1": [1.1, 2.2, 3.3],
+        "da2": [100.5, -100.1, 0.0],
+    }
+    assert auxdata.string_arr_data == {
+        "sa1": ["1.1", "2.2", "3.3"],
+        "sa2": ["100.5", "-100.1", "0.0"],
+    }
 
     new_conf = basis.to_BBasisConfiguration()
     auxdata = new_conf.auxdata
-    assert auxdata.int_data == {"i1": 1, "i2": 2, "i3":3}
+    assert auxdata.int_data == {"i1": 1, "i2": 2, "i3": 3}
     assert auxdata.double_data == {"d1": 1.5, "d2": 2.0}
     assert auxdata.string_data["s1"] == "Some string"
     assert auxdata.string_data["s2"] == "Some another string"
 
     assert auxdata.int_arr_data == {"ia1": [1, 2, 3], "ia2": [100, -100, 0]}
-    assert auxdata.double_arr_data == {"da1": [1.1, 2.2, 3.3], "da2": [100.5, -100.1, 0.0]}
-    assert auxdata.string_arr_data == {"sa1": ["1.1", "2.2", "3.3"], "sa2": ["100.5", "-100.1", "0.0"]}
+    assert auxdata.double_arr_data == {
+        "da1": [1.1, 2.2, 3.3],
+        "da2": [100.5, -100.1, 0.0],
+    }
+    assert auxdata.string_arr_data == {
+        "sa1": ["1.1", "2.2", "3.3"],
+        "sa2": ["100.5", "-100.1", "0.0"],
+    }
+
 
 def test_pickle_ACEBBasisSet():
     config = BBasisConfiguration("tests/Al-r1234l12_crad_dif.yaml")
@@ -1012,20 +1399,171 @@ def test_multispecies_ACEBBasisSet_all_coeffs_mask():
     assert len(all_coeffs) == len(all_coeffs_mask)
     assert crad_coeffs_mask + basis_coeffs_mask == all_coeffs_mask
 
-    assert crad_coeffs_mask == [[0], [0], [0], [0], [0], [0], [0, 1], [0, 1], [0, 2], [0, 2], [0, 2], [0, 2], [1], [1],
-                                [1], [1, 2], [1, 2], [2], [2], [2]]
+    assert crad_coeffs_mask == [
+        [0],
+        [0],
+        [0],
+        [0],
+        [0],
+        [0],
+        [0, 1],
+        [0, 1],
+        [0, 2],
+        [0, 2],
+        [0, 2],
+        [0, 2],
+        [1],
+        [1],
+        [1],
+        [1, 2],
+        [1, 2],
+        [2],
+        [2],
+        [2],
+    ]
 
-    assert basis_coeffs_mask == [[0], [0], [0, 1], [0, 2], [0], [0, 1], [0, 2], [0, 1, 2], [0], [0, 1], [0, 1, 2],
-                                 [0, 2], [0], [0, 1], [0, 1, 2], [0, 2], [1, 0], [1], [1, 2], [1, 0], [1, 0, 2], [1],
-                                 [1, 2], [1, 0], [1, 0, 2], [1], [1, 2], [1, 0], [1], [1, 2], [2, 0], [2, 0], [2, 1],
-                                 [2, 1], [2], [2], [2, 0, 1], [2, 0, 1], [2, 0], [2, 0], [2, 1], [2, 1], [2], [2],
-                                 [2, 0, 1], [2, 0, 1], [2, 0], [2, 0], [2, 1], [2, 1], [2], [2], [2, 0, 1], [2, 0, 1],
-                                 [2, 0], [2, 0], [2, 1], [2, 1], [2], [2]]
+    assert basis_coeffs_mask == [
+        [0],
+        [0],
+        [0, 1],
+        [0, 2],
+        [0],
+        [0, 1],
+        [0, 2],
+        [0, 1, 2],
+        [0],
+        [0, 1],
+        [0, 1, 2],
+        [0, 2],
+        [0],
+        [0, 1],
+        [0, 1, 2],
+        [0, 2],
+        [1, 0],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1, 0, 2],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1, 0, 2],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1],
+        [1, 2],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+    ]
 
-    assert all_coeffs_mask == [[0], [0], [0], [0], [0], [0], [0, 1], [0, 1], [0, 2], [0, 2], [0, 2], [0, 2], [1], [1],
-                               [1], [1, 2], [1, 2], [2], [2], [2], [0], [0], [0, 1], [0, 2], [0], [0, 1], [0, 2],
-                               [0, 1, 2], [0], [0, 1], [0, 1, 2], [0, 2], [0], [0, 1], [0, 1, 2], [0, 2], [1, 0], [1],
-                               [1, 2], [1, 0], [1, 0, 2], [1], [1, 2], [1, 0], [1, 0, 2], [1], [1, 2], [1, 0], [1],
-                               [1, 2], [2, 0], [2, 0], [2, 1], [2, 1], [2], [2], [2, 0, 1], [2, 0, 1], [2, 0], [2, 0],
-                               [2, 1], [2, 1], [2], [2], [2, 0, 1], [2, 0, 1], [2, 0], [2, 0], [2, 1], [2, 1], [2], [2],
-                               [2, 0, 1], [2, 0, 1], [2, 0], [2, 0], [2, 1], [2, 1], [2], [2]]
+    assert all_coeffs_mask == [
+        [0],
+        [0],
+        [0],
+        [0],
+        [0],
+        [0],
+        [0, 1],
+        [0, 1],
+        [0, 2],
+        [0, 2],
+        [0, 2],
+        [0, 2],
+        [1],
+        [1],
+        [1],
+        [1, 2],
+        [1, 2],
+        [2],
+        [2],
+        [2],
+        [0],
+        [0],
+        [0, 1],
+        [0, 2],
+        [0],
+        [0, 1],
+        [0, 2],
+        [0, 1, 2],
+        [0],
+        [0, 1],
+        [0, 1, 2],
+        [0, 2],
+        [0],
+        [0, 1],
+        [0, 1, 2],
+        [0, 2],
+        [1, 0],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1, 0, 2],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1, 0, 2],
+        [1],
+        [1, 2],
+        [1, 0],
+        [1],
+        [1, 2],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+        [2, 0, 1],
+        [2, 0, 1],
+        [2, 0],
+        [2, 0],
+        [2, 1],
+        [2, 1],
+        [2],
+        [2],
+    ]

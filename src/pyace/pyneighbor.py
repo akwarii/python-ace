@@ -3,7 +3,6 @@ from ase.neighborlist import NewPrimitiveNeighborList, PrimitiveNeighborList
 
 
 class ACENeighborList:
-
     def __init__(self, cutoff=9, skin=0):
         self.cutoff = cutoff
         self.skin = skin
@@ -24,8 +23,13 @@ class ACENeighborList:
             neigh_class = self._suggest_best_neighbour_list_class(atoms)
 
         self._reset_nl()
-        self._nl = neigh_class(cutoffs=[self.cutoff * 0.5] * len(atoms), skin=self.skin,
-                               self_interaction=False, bothways=True, use_scaled_positions=False)
+        self._nl = neigh_class(
+            cutoffs=[self.cutoff * 0.5] * len(atoms),
+            skin=self.skin,
+            self_interaction=False,
+            bothways=True,
+            use_scaled_positions=False,
+        )
         atoms_positions = atoms.get_positions()
         atoms_types = atoms.get_chemical_symbols()
         atoms_cell = atoms.get_cell()
@@ -39,20 +43,27 @@ class ACENeighborList:
         }
 
         for cur_at_ind in range(len(atoms)):
-            cur_at_neigh_indices, cur_at_neigh_offsets = self._nl.get_neighbors(cur_at_ind)
+            cur_at_neigh_indices, cur_at_neigh_offsets = self._nl.get_neighbors(
+                cur_at_ind
+            )
             # extend neigh positions with periodic images
-            cur_at_neigh_rs = np.take(atoms_positions, cur_at_neigh_indices, axis=0) + np.dot(cur_at_neigh_offsets,
-                                                                                              atoms_cell)
+            cur_at_neigh_rs = np.take(
+                atoms_positions, cur_at_neigh_indices, axis=0
+            ) + np.dot(cur_at_neigh_offsets, atoms_cell)
             cur_at_neigh_types = np.take(atoms_types, cur_at_neigh_indices, axis=0)
 
             cur_at_neighb_list = []
 
-            for neigh_r, neigh_type, neigh_origin in zip(cur_at_neigh_rs, cur_at_neigh_types, cur_at_neigh_indices):
+            for neigh_r, neigh_type, neigh_origin in zip(
+                cur_at_neigh_rs, cur_at_neigh_types, cur_at_neigh_indices
+            ):
                 neigh_r = tuple(neigh_r)
                 if neigh_r not in rs_to_index_type_dict:
                     new_ind = len(rs_to_index_type_dict)
                     rs_to_index_type_dict[neigh_r] = (new_ind, neigh_type, neigh_origin)
-                cur_at_neighb_list.append(rs_to_index_type_dict[neigh_r][0])  # append index to current neighbour list
+                cur_at_neighb_list.append(
+                    rs_to_index_type_dict[neigh_r][0]
+                )  # append index to current neighbour list
 
             self.jlists.append(cur_at_neighb_list)
 
@@ -61,7 +72,11 @@ class ACENeighborList:
         self.origins = np.zeros(len(rs_to_index_type_dict), dtype=int)
         # create empty array of strings of len(rs_to_index_type_dict) by len(2) strings
         self.types = np.empty(len(rs_to_index_type_dict), dtype="S2")
-        for neigh_r, (cur_at_ind, neigh_type, neigh_origin) in rs_to_index_type_dict.items():
+        for neigh_r, (
+            cur_at_ind,
+            neigh_type,
+            neigh_origin,
+        ) in rs_to_index_type_dict.items():
             self.x[cur_at_ind] = neigh_r
             self.types[cur_at_ind] = neigh_type
             self.origins[cur_at_ind] = neigh_origin
@@ -88,7 +103,6 @@ class ACENeighborList:
 
     @property
     def species_type(self):
-
         self._species_type = np.zeros(len(self.types))
         for i, t in enumerate(self.types):
             self._species_type[i] = self.types_mapper_dict[t]

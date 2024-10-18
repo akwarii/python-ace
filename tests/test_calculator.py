@@ -4,10 +4,19 @@ import pytest
 from ase.atoms import Atoms
 from ase.build import bulk
 from pyace.asecalc import PyACECalculator, PyACEEnsembleCalculator
-from pyace.atomicenvironment import aseatoms_to_atomicenvironment, create_cube, create_linear_chain
+from pyace.atomicenvironment import (
+    aseatoms_to_atomicenvironment,
+    create_cube,
+    create_linear_chain,
+)
 from pyace.basis import ACECTildeBasisSet, ACEBBasisSet, FexpShiftedScaled
 from pyace.calculator import ACECalculator
-from pyace.evaluator import ACECTildeEvaluator, ACEBEvaluator, ACERecursiveEvaluator, get_ace_evaluator_version
+from pyace.evaluator import (
+    ACECTildeEvaluator,
+    ACEBEvaluator,
+    ACERecursiveEvaluator,
+    get_ace_evaluator_version,
+)
 
 
 def test_calculator_energy():
@@ -15,11 +24,11 @@ def test_calculator_energy():
     basis.load("tests/Al.pbe.in-rank1.ace")
     evaluator = ACECTildeEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 9.)
+    atoms = create_cube(3.0, 9.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
-    assert abs(calculator.energy + 271.755644394495) < 1E-5
+    assert abs(calculator.energy + 271.755644394495) < 1e-5
 
 
 def test_calculator_forces():
@@ -27,7 +36,7 @@ def test_calculator_forces():
     basis.load("tests/Al.pbe.in-rank1.ace")
     evaluator = ACECTildeEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 9.)
+    atoms = create_cube(3.0, 9.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
@@ -42,7 +51,7 @@ def test_calculator_energy_rank3_corerep():
     basis.load("tests/Al.pbe-in.rank3-core-rep.ace")
     evaluator = ACECTildeEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 3.)
+    atoms = create_cube(3.0, 3.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
@@ -53,11 +62,11 @@ def test_calculator_energy_rank3_corerep():
     # e0 =  5451.5414550234818
     # f0 = -367.13574172876906
 
-    assert abs(calculator.energy - (e0)) < 1E-7
+    assert abs(calculator.energy - (e0)) < 1e-7
     f = calculator.forces
-    assert abs(f[0][0] - (f0)) < 1E-7
-    assert abs(f[1][1] - (f0)) < 1E-7
-    assert abs(f[7][2] - (-f0)) < 1E-7
+    assert abs(f[0][0] - (f0)) < 1e-7
+    assert abs(f[1][1] - (f0)) < 1e-7
+    assert abs(f[7][2] - (-f0)) < 1e-7
 
 
 def test_calculator_energy_rhocore():
@@ -84,13 +93,13 @@ def test_calculator_energy_rhocore():
     f1 = 0
     f2 = 0
 
-    assert abs(calculator.energy - (e0)) < 1E-7
+    assert abs(calculator.energy - (e0)) < 1e-7
     f = calculator.forces
     print(f)
 
-    assert abs(f[0][0] - (f0)) < 1E-7
-    assert abs(f[1][1] - (f1)) < 1E-7
-    assert abs(f[-1][2] - (f2)) < 1E-7
+    assert abs(f[0][0] - (f0)) < 1e-7
+    assert abs(f[1][1] - (f1)) < 1e-7
+    assert abs(f[-1][2] - (f2)) < 1e-7
 
 
 # def test_calculator_cbasis_projections():
@@ -149,8 +158,6 @@ def test_calculator_bbasis_projections():
 
     print("x: x_projs=", x_projs)
 
-
-
     print("x: x_projs=", x_projs)
 
     print("x_rhos=", x_rhos)
@@ -172,9 +179,13 @@ def test_calculator_bbasis_projections():
     assert np.allclose(z_dF_drhos, x_dF_drhos)
 
 
-@pytest.mark.parametrize("potname", ["tests/Al.pbe.13.2.yaml",
-                                     "tests/Al-Ni_opt_all.yaml",
-                                     ])
+@pytest.mark.parametrize(
+    "potname",
+    [
+        "tests/Al.pbe.13.2.yaml",
+        "tests/Al-Ni_opt_all.yaml",
+    ],
+)
 def test_ASE_calculator_bbasis_projections(potname):
     calculator = PyACECalculator(potname)
     atoms = bulk("Al", "fcc")
@@ -198,9 +209,9 @@ def test_ASE_calculator_Voigt_stress_order():
 
     test_Al = bulk("Al", "fcc", a=4.05, cubic=True)
     eps = 1e-2
-    deform_matrix = np.array([[1 - eps, eps, eps],
-                              [-eps, 1 + eps, -eps],
-                              [eps, eps, 1 - eps]])
+    deform_matrix = np.array(
+        [[1 - eps, eps, eps], [-eps, 1 + eps, -eps], [eps, eps, 1 - eps]]
+    )
     cell = test_Al.get_cell()
     new_cell = np.dot(cell, deform_matrix)
     test_Al.set_cell(new_cell, scale_atoms=True)
@@ -208,12 +219,20 @@ def test_ASE_calculator_Voigt_stress_order():
     test_Al.set_calculator(calculator)
     stresses = test_Al.get_stress()
     print("stresses=", stresses)
-    stresses_ref = [1.39710511e-01, 1.53093581e-01, 1.39710511e-01, -9.67787622e-05,
-                    2.42101868e-03, -9.67787622e-05]
+    stresses_ref = [
+        1.39710511e-01,
+        1.53093581e-01,
+        1.39710511e-01,
+        -9.67787622e-05,
+        2.42101868e-03,
+        -9.67787622e-05,
+    ]
     assert np.allclose(stresses, stresses_ref)
 
 
-@pytest.mark.parametrize("potname", ["tests/Al-Ni_opt_all.yaml", "tests/Al-Ni_opt_all.yace"])
+@pytest.mark.parametrize(
+    "potname", ["tests/Al-Ni_opt_all.yaml", "tests/Al-Ni_opt_all.yace"]
+)
 def test_ASE_calculator_multispecies_AlNi(potname):
     calculator = PyACECalculator(potname)
     test_Al = bulk("Al", "fcc", a=4.05, cubic=True)
@@ -236,7 +255,7 @@ def test_ASE_calculator_multispecies_AlNi(potname):
     eref = 306.0646090745618
     eeref = np.array([341.38851822, -11.77463638, -11.77463638, -11.77463638])
     fref = np.zeros((4, 3))
-    s0 = -4.82378191e+00
+    s0 = -4.82378191e00
     sref = np.array([s0, s0, s0, 0, 0, 0])
 
     assert np.allclose(e, eref)
@@ -255,7 +274,7 @@ def test_Ni_2dens_FexpShiftedScaled_manual_e_consistency():
     print("f1.coeffs=", f1.coeffs)
     print("f2.coeffs=", f2.coeffs)
 
-    trimer = Atoms('Ni3', positions=[[1, 0, 0], [0, 1, 0], [0, 0, 1]], pbc=0)
+    trimer = Atoms("Ni3", positions=[[1, 0, 0], [0, 1, 0], [0, 0, 1]], pbc=0)
     trimer.set_calculator(calc)
 
     e = trimer.get_potential_energy()
@@ -280,11 +299,11 @@ def test_calculator_energy_recursive():
     basis.load("tests/Al.pbe.in-rank1.ace")
     evaluator = ACERecursiveEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 9.)
+    atoms = create_cube(3.0, 9.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
-    assert abs(calculator.energy + 271.755644394495) < 1E-5
+    assert abs(calculator.energy + 271.755644394495) < 1e-5
 
 
 def test_calculator_forces_recursive():
@@ -292,7 +311,7 @@ def test_calculator_forces_recursive():
     basis.load("tests/Al.pbe.in-rank1.ace")
     evaluator = ACERecursiveEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 9.)
+    atoms = create_cube(3.0, 9.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
@@ -307,18 +326,18 @@ def test_calculator_energy_rank3_corerep_recursive():
     basis.load("tests/Al.pbe-in.rank3-core-rep.ace")
     evaluator = ACERecursiveEvaluator()
     evaluator.set_basis(basis)
-    atoms = create_cube(3., 3.)
+    atoms = create_cube(3.0, 3.0)
     calculator = ACECalculator()
     calculator.set_evaluator(evaluator)
     calculator.compute(atoms, False)
 
     e0 = 5451.5152094384885
     f0 = -367.12320042084258
-    assert abs(calculator.energy - (e0)) < 1E-7
+    assert abs(calculator.energy - (e0)) < 1e-7
     f = calculator.forces
-    assert abs(f[0][0] - (f0)) < 1E-7
-    assert abs(f[1][1] - (f0)) < 1E-7
-    assert abs(f[7][2] - (-f0)) < 1E-7
+    assert abs(f[0][0] - (f0)) < 1e-7
+    assert abs(f[1][1] - (f0)) < 1e-7
+    assert abs(f[7][2] - (-f0)) < 1e-7
 
 
 def test_calculator_energy_rhocore_recursive():
@@ -345,13 +364,13 @@ def test_calculator_energy_rhocore_recursive():
     f1 = 0
     f2 = 0
 
-    assert abs(calculator.energy - (e0)) < 1E-7
+    assert abs(calculator.energy - (e0)) < 1e-7
     f = calculator.forces
     print(f)
 
-    assert abs(f[0][0] - (f0)) < 1E-7
-    assert abs(f[1][1] - (f1)) < 1E-7
-    assert abs(f[-1][2] - (f2)) < 1E-7
+    assert abs(f[0][0] - (f0)) < 1e-7
+    assert abs(f[1][1] - (f1)) < 1e-7
+    assert abs(f[-1][2] - (f2)) < 1e-7
 
 
 def test_get_ace_evaluator_version():
@@ -372,8 +391,22 @@ def test_PyACEEnsembleCalculator():
     results = calc.results
     print("results=", results)
     print("results.keys=", results.keys())
-    expected_keys = ['energy', 'free_energy', 'forces', 'energies', 'energy_std', 'free_energy_std', 'forces_std',
-                     'energies_std', 'energy_dev', 'energies_dev', 'forces_dev', 'stress', 'stress_std', 'stress_dev']
+    expected_keys = [
+        "energy",
+        "free_energy",
+        "forces",
+        "energies",
+        "energy_std",
+        "free_energy_std",
+        "forces_std",
+        "energies_std",
+        "energy_dev",
+        "energies_dev",
+        "forces_dev",
+        "stress",
+        "stress_std",
+        "stress_dev",
+    ]
 
     for exp_key in expected_keys:
         assert exp_key in results
@@ -401,7 +434,12 @@ def test_PyACECalculator_active_set():
     print("energy = ", energy)
     print("gamma = ", gamma)
     energy_expected = -778.3043076364492
-    gamma_expected = [5691014.320236206, 1711.20627784729, 5691197.948196411, 1647.2230472564697]
+    gamma_expected = [
+        5691014.320236206,
+        1711.20627784729,
+        5691197.948196411,
+        1647.2230472564697,
+    ]
 
     assert np.allclose(energy, energy_expected)
     assert np.allclose(gamma, gamma_expected)
@@ -415,10 +453,12 @@ def test_PyACECalculator_active_set_dump_extrapolation():
     pos += np.random.randn(*pos.shape)
     atoms.set_positions(pos)
 
-    asecalc = PyACECalculator("tests/DFT10B-AgCu.yaml",
-                              dump_extrapolative_structures=True,
-                              keep_extrapolative_structures=True,
-                              stop_at_large_extrapolation=True)
+    asecalc = PyACECalculator(
+        "tests/DFT10B-AgCu.yaml",
+        dump_extrapolative_structures=True,
+        keep_extrapolative_structures=True,
+        stop_at_large_extrapolation=True,
+    )
     asecalc.set_active_set("tests/DFT10B-AgCu.asi")
 
     atoms.set_calculator(asecalc)

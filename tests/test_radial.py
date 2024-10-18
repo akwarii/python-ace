@@ -33,7 +33,7 @@ def test_RadialFunctionSmoothness():
     radVal = RadialFunctionsValues(bbasis)
     smothness = RadialFunctionSmoothness(radVal)
     smooth_quad = smothness.smooth_quad
-    loss_radial = 1. * smooth_quad[0] + 2. * smooth_quad[1] + 1. * smooth_quad[2]
+    loss_radial = 1.0 * smooth_quad[0] + 2.0 * smooth_quad[1] + 1.0 * smooth_quad[2]
     print(smothness)
     print(loss_radial)
     assert np.allclose(loss_radial, 45.78851338482764)
@@ -44,7 +44,7 @@ def test_RadialFunctionSmoothness_multispecies():
     radVal = RadialFunctionsValues(bbasis)
     smothness = RadialFunctionSmoothness(radVal)
     smooth_quad = smothness.smooth_quad
-    loss_radial = 1. * smooth_quad[0] + 2. * smooth_quad[1] + 1. * smooth_quad[2]
+    loss_radial = 1.0 * smooth_quad[0] + 2.0 * smooth_quad[1] + 1.0 * smooth_quad[2]
     print("smothness=", smothness)
     print("loss_radial=", loss_radial)
     assert np.allclose(loss_radial, 4.839803345705426)

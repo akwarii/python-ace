@@ -15,6 +15,7 @@ global g_basis, g_beval, g_calc
 try:
     from tqdm import tqdm
 except ImportError:
+
     def tqdm(*args, **kwargs):
         return args
 
@@ -35,7 +36,7 @@ def compute_b_grad_ae(ae):
     for s, proj in zip(ae.species_type, projections):
         f_shift = g_func_ind_shift[s]
         n_func = len(proj)  # species type dependent
-        energy_list[f_shift:f_shift + n_func] += proj
+        energy_list[f_shift : f_shift + n_func] += proj
 
     return energy_list, g_calc.forces_bfuncs
 
@@ -58,12 +59,23 @@ def compute_nfunc_func_ind_shift(basis):
 
 
 # Generate random data using multiple processes
-def generate_data(data, basis, shared_design_matrix, structures_chunk, atoms_chunk, cutoff, elements_mapper_dict,
-                  verbose=False, proc_id=-1):
+def generate_data(
+    data,
+    basis,
+    shared_design_matrix,
+    structures_chunk,
+    atoms_chunk,
+    cutoff,
+    elements_mapper_dict,
+    verbose=False,
+    proc_id=-1,
+):
     if verbose:
-        print(f"[Proc-{proc_id}]structures_chunk={structures_chunk}, atoms_chunk={atoms_chunk} " +
-              f" # struct={structures_chunk[1] - structures_chunk[0]}, #at = {atoms_chunk[1] - atoms_chunk[0]}",
-              flush=True)
+        print(
+            f"[Proc-{proc_id}]structures_chunk={structures_chunk}, atoms_chunk={atoms_chunk} "
+            + f" # struct={structures_chunk[1] - structures_chunk[0]}, #at = {atoms_chunk[1] - atoms_chunk[0]}",
+            flush=True,
+        )
 
     t1_start = perf_counter()
 
@@ -76,17 +88,20 @@ def generate_data(data, basis, shared_design_matrix, structures_chunk, atoms_chu
     nfunc, func_ind_shift = compute_nfunc_func_ind_shift(basis)
 
     shared_design_matrix_np = np.frombuffer(shared_design_matrix).reshape(
-        total_number_of_structures + total_number_of_atoms * 3, nfunc)
+        total_number_of_structures + total_number_of_atoms * 3, nfunc
+    )
 
     # Get the data subset
-    data_subset = data.iloc[structures_chunk[0]: structures_chunk[1]]
+    data_subset = data.iloc[structures_chunk[0] : structures_chunk[1]]
 
     global_atom_ind_shift = total_number_of_structures + atoms_chunk[0] * 3
     loc_n_structures = len(data_subset)
     step = max(loc_n_structures // 25, 1)
     t_loop_start = perf_counter()
     for struct_ind, at in enumerate(data_subset["ase_atoms"]):
-        ae = aseatoms_to_atomicenvironment(at, cutoff=cutoff, elements_mapper_dict=elements_mapper_dict)
+        ae = aseatoms_to_atomicenvironment(
+            at, cutoff=cutoff, elements_mapper_dict=elements_mapper_dict
+        )
         # do calculation with compute gradients flag
         calc.compute(ae, compute_projections=True, compute_b_grad=True)
 
@@ -99,7 +114,7 @@ def generate_data(data, basis, shared_design_matrix, structures_chunk, atoms_chu
         for i, (s, proj) in enumerate(zip(ae.species_type, projections)):
             f_shift = func_ind_shift[s]
             n_func = len(proj)
-            shared_design_matrix_np[e_ind, f_shift:f_shift + n_func] += proj
+            shared_design_matrix_np[e_ind, f_shift : f_shift + n_func] += proj
         # divide by number of atoms to get average-per-atom
         shared_design_matrix_np[e_ind] /= cur_num_atoms
 
@@ -108,7 +123,9 @@ def generate_data(data, basis, shared_design_matrix, structures_chunk, atoms_chu
         nat = ae.n_atoms_real
 
         forces_bfuncs = forces_bfuncs.transpose((0, 2, 1)).reshape(nat * 3, nfunc)
-        shared_design_matrix_np[global_atom_ind_shift: global_atom_ind_shift + nat * 3] = forces_bfuncs
+        shared_design_matrix_np[
+            global_atom_ind_shift : global_atom_ind_shift + nat * 3
+        ] = forces_bfuncs
         global_atom_ind_shift += nat * 3
         if verbose:
             if (struct_ind + 1) % step == 0:
@@ -119,13 +136,16 @@ def generate_data(data, basis, shared_design_matrix, structures_chunk, atoms_chu
                 print(
                     f"[Proc-{proc_id}] {struct_ind + 1}/{loc_n_structures} structures: "
                     f"[{cur_elaps:.2f}/{est_tot:.2f}s, {est_remain:.2f} s remains]",
-                    flush=True)
+                    flush=True,
+                )
     t1_stop = perf_counter()
 
     if verbose:
         print(
             f"[Proc-{proc_id}] {struct_ind + 1}/{loc_n_structures} structures, "
-            f"elapsed time = {t1_stop - t1_start:.3g} s", flush=True)
+            f"elapsed time = {t1_stop - t1_start:.3g} s",
+            flush=True,
+        )
 
 
 class LinearACEDataset:
@@ -150,7 +170,8 @@ class LinearACEDataset:
         else:
             raise ValueError(
                 f"Unsupported type of bconf_or_bbasis: {type(bconf_or_bbasis)}. Must be BBasisConfiguration or "
-                f"ACEBBasisSet")
+                f"ACEBBasisSet"
+            )
 
         self.beval = ACEBEvaluator(self.basis)
         self.calc = ACECalculator(self.beval)
@@ -170,8 +191,10 @@ class LinearACEDataset:
         """
         :return: Memory for storing e and flist in bytes
         """
-        return (self.total_number_of_atoms * 3 * self.nfunc +
-                self.total_number_of_structures * self.nfunc) * 8
+        return (
+            self.total_number_of_atoms * 3 * self.nfunc
+            + self.total_number_of_structures * self.nfunc
+        ) * 8
 
     def prepare_df(self):
         if "NUMBER_OF_ATOMS" not in self.df.columns:
@@ -203,13 +226,18 @@ class LinearACEDataset:
             self.df = df
             self.prepare_df()
 
-        self.total_shared_design_matrix_size = int(
-            self.total_number_of_structures + self.total_number_of_atoms * 3) * self.nfunc
+        self.total_shared_design_matrix_size = (
+            int(self.total_number_of_structures + self.total_number_of_atoms * 3)
+            * self.nfunc
+        )
 
-        self.shared_design_matrix = mp.Array('d', self.total_shared_design_matrix_size, lock=False)
+        self.shared_design_matrix = mp.Array(
+            "d", self.total_shared_design_matrix_size, lock=False
+        )
 
         self.design_matrix = np.frombuffer(self.shared_design_matrix).reshape(
-            self.total_number_of_structures + self.total_number_of_atoms * 3, self.nfunc)
+            self.total_number_of_structures + self.total_number_of_atoms * 3, self.nfunc
+        )
 
         max_workers = min(max_workers, self.total_number_of_structures)
         # Determine the number of rows to process in each iteration
@@ -222,19 +250,31 @@ class LinearACEDataset:
         atoms_ind_chunks = []
         prev_at_ind = 0
         for chunks in structure_ind_chunks:
-            chunk_num_at = self.df.iloc[chunks[0]:chunks[1]]['NUMBER_OF_ATOMS'].sum()
+            chunk_num_at = self.df.iloc[chunks[0] : chunks[1]]["NUMBER_OF_ATOMS"].sum()
             atoms_ind_chunks.append((prev_at_ind, prev_at_ind + chunk_num_at))
             prev_at_ind += chunk_num_at
         assert atoms_ind_chunks[-1][-1] == self.total_number_of_atoms
 
-        self.design_matrix[:] = 0.
+        self.design_matrix[:] = 0.0
         # Create the processes and start them
         processes = []
-        for proc_ind, (s_chunk, a_chunk) in enumerate(zip(structure_ind_chunks, atoms_ind_chunks)):
-            p = mp.Process(target=generate_data,
-                           args=(self.df, self.basis,
-                                 self.shared_design_matrix, s_chunk, a_chunk, self.cutoff, self.elements_mapper_dict,
-                                 verbose, proc_ind))
+        for proc_ind, (s_chunk, a_chunk) in enumerate(
+            zip(structure_ind_chunks, atoms_ind_chunks)
+        ):
+            p = mp.Process(
+                target=generate_data,
+                args=(
+                    self.df,
+                    self.basis,
+                    self.shared_design_matrix,
+                    s_chunk,
+                    a_chunk,
+                    self.cutoff,
+                    self.elements_mapper_dict,
+                    verbose,
+                    proc_ind,
+                ),
+            )
             processes.append(p)
             p.start()
 
@@ -243,13 +283,15 @@ class LinearACEDataset:
             p.join()
 
     def get_design_matrix(self, df=None, max_workers=4, verbose=False):
-        """ Get design matrix """
+        """Get design matrix"""
         if self.design_matrix is None:
-            self.construct_design_matrix(df=df, max_workers=max_workers, verbose=verbose)
+            self.construct_design_matrix(
+                df=df, max_workers=max_workers, verbose=verbose
+            )
         return self.design_matrix
 
     def construct_target_vector(self):
-        """ Construct target matrix from the dataset """
+        """Construct target matrix from the dataset"""
         if "energy_corrected" in self.df.columns:
             energies_ref = self.df["energy_corrected"].values.copy()
         elif "energy" in self.df.columns:
@@ -261,7 +303,7 @@ class LinearACEDataset:
         self.target_vector = np.hstack([energies_ref, forces_ref])
 
     def get_target_vector(self):
-        """ Get target matrix """
+        """Get target matrix"""
         if self.target_vector is None:
             self.construct_target_vector()
         return self.target_vector
@@ -270,13 +312,13 @@ class LinearACEDataset:
         """Get energies-per-atom from target vector
         :param vector: target vector to extract energies from, if None - return TRUE values from  self.targetvector
         :return: energies array (n_structures)
-         """
+        """
         if vector is None:
             vector = self.get_target_vector()
-        return vector[:self.total_number_of_structures]
+        return vector[: self.total_number_of_structures]
 
     def get_forces(self, vector=None, reshape_forces=False):
-        """ Get forces from target vector
+        """Get forces from target vector
         :param vector: target vector to extract energies from, if None - return TRUE values from  self.targetvector
         :param reshape_forces: reshape forces to (n_atoms, 3) shape
         :return: forces array (3*n_atoms) or reshaped forces array (n_atoms, 3)
@@ -284,27 +326,33 @@ class LinearACEDataset:
         if vector is None:
             vector = self.get_target_vector()
         if reshape_forces:
-            return vector[self.total_number_of_structures:].reshape(-1, 3)
+            return vector[self.total_number_of_structures :].reshape(-1, 3)
         else:
-            return vector[self.total_number_of_structures:]
+            return vector[self.total_number_of_structures :]
 
     # compute errors: MAE, RMSE, MAE per atom, RMSE per atom
     # return as dictionary
     def compute_errors(self, epa_pred=None, f_pred=None, epa_ref=None, f_ref=None):
-        epa_ref = epa_ref if epa_ref is not None else self.get_energies_per_atom()  # shape [nstruct]
+        epa_ref = (
+            epa_ref if epa_ref is not None else self.get_energies_per_atom()
+        )  # shape [nstruct]
         f_ref = f_ref if f_ref is not None else self.get_forces()  # shape [natom, 3]
         # e_pred = e_pred if e_pred is not None else self.e_pred
         # f_pred = f_pred if f_pred is not None else self.f_pred
         # number_of_atoms = self.df["NUMBER_OF_ATOMS"].values
-        depa = (epa_ref - epa_pred)  # / number_of_atoms
+        depa = epa_ref - epa_pred  # / number_of_atoms
         epa_mae = np.mean(np.abs(depa))
-        epa_rmse = np.sqrt(np.mean(depa ** 2))
+        epa_rmse = np.sqrt(np.mean(depa**2))
 
         f_comp_mae = np.mean(np.abs(f_ref - f_pred).flatten())
         f_comp_rmse = np.sqrt(np.mean(((f_ref - f_pred) ** 2).flatten()))
 
-        return {'epa_mae': epa_mae, 'epa_rmse': epa_rmse,
-                'f_comp_mae': f_comp_mae, 'f_comp_rmse': f_comp_rmse}
+        return {
+            "epa_mae": epa_mae,
+            "epa_rmse": epa_rmse,
+            "f_comp_mae": f_comp_mae,
+            "f_comp_rmse": f_comp_rmse,
+        }
 
     def get_bbasis(self, model):
         self.basis.basis_coeffs = model.coef_
@@ -314,9 +362,10 @@ class LinearACEDataset:
 # class that takes two LinearACEDatasets: train and test
 # and has .fit and .predict methods
 
+
 class LinearACEFit:
     def __init__(self, model=None, train_dataset=None):
-        """ Linear ACE fit class
+        """Linear ACE fit class
         :param model: linear model to fit
         :param train_dataset: LinearACEDataset object
         """
@@ -325,31 +374,45 @@ class LinearACEFit:
         self.train_dataset = train_dataset
 
     def set_model(self, model=None):
-        """ Set model to self.model attribute
+        """Set model to self.model attribute
         :param model: linear model to fit. If None - use Ridge with default parameters
         """
         if model is None:
             from sklearn.linear_model import Ridge
-            self.model = Ridge(alpha=1e-5, fit_intercept=False, copy_X=False, random_state=42, solver="auto")
+
+            self.model = Ridge(
+                alpha=1e-5,
+                fit_intercept=False,
+                copy_X=False,
+                random_state=42,
+                solver="auto",
+            )
         else:
             self.model = model
 
-    def fit(self, train_dataset: Optional[LinearACEDataset] = None, model=None, **kwargs):
-        """ Fit model to train dataset
+    def fit(
+        self, train_dataset: Optional[LinearACEDataset] = None, model=None, **kwargs
+    ):
+        """Fit model to train dataset
         :param train_dataset: LinearACEDataset object. If None - use self.train_dataset
         :param model: linear model to fit. If None - use self.model
         :param kwargs: keyword arguments for model.fit method
         :return: fitted model
         """
-        train_dataset = train_dataset if train_dataset is not None else self.train_dataset
+        train_dataset = (
+            train_dataset if train_dataset is not None else self.train_dataset
+        )
         if model is not None:
             self.set_model(model)
 
-        return self.model.fit(train_dataset.get_design_matrix(),
-                              train_dataset.get_target_vector(), **kwargs)
+        return self.model.fit(
+            train_dataset.get_design_matrix(),
+            train_dataset.get_target_vector(),
+            **kwargs,
+        )
 
     def predict(self, dataset: Optional[LinearACEDataset] = None, reshape_forces=False):
-        """ Predict energies and forces from dataset
+        """Predict energies and forces from dataset
         :param dataset: LinearACEDataset object. If None - use self.train_dataset
         :param model: linear model to fit. If None - use self.model
         :param reshape_forces: reshape forces to (n_atoms, 3) shape
@@ -363,7 +426,7 @@ class LinearACEFit:
         return epa_pred, f_pred
 
     def compute_errors(self, dataset: Optional[LinearACEDataset] = None):
-        """ Compute errors for dataset
+        """Compute errors for dataset
         :param dataset: LinearACEDataset object. If None - use self.train_dataset
         :return: dictionary with errors
         """

@@ -1,6 +1,7 @@
 import os
 from pyace.basis import ACE_B_to_CTildeBasisSet
 
+
 def convert_yaml_to_ace(infile, outfile):
     """
     Utility to convert yaml format to ace format
@@ -19,4 +20,3 @@ def convert_yaml_to_ace(infile, outfile):
     basis = ACE_B_to_CTildeBasisSet()
     basis.load_yaml(infile)
     basis.save(outfile)
-    

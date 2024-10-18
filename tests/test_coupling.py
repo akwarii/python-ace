@@ -7,6 +7,7 @@ from pyace.coupling import validate_ls_LS, is_valid_ls_LS, expand_ls_LS
 
 # from pyace.coupling import expand_ls_LS_wrapper
 
+
 def test_ACECouplingTree():
     ct = ACECouplingTree(3)
     print("ct.tree_indices_array=", ct.tree_indices_array)

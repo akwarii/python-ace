@@ -37,7 +37,9 @@ def test_active_exploration_gamma_lo_None():
     asiname = "tests/multispecies_AlNi.asi"
 
     ae = ActiveExploration(potname, asiname)
-    ae_atoms = ae.active_exploration(atoms, initial_moving_atom_index=0, n_iter=4, gamma_lo=None)
+    ae_atoms = ae.active_exploration(
+        atoms, initial_moving_atom_index=0, n_iter=4, gamma_lo=None
+    )
 
     print(ae_atoms)
     sp = ae_atoms.get_scaled_positions()
@@ -57,7 +59,9 @@ def test_active_exploration_movable_atoms():
 
     ae = ActiveExploration(potname, asiname)
     movable_atoms_indices = [0, 1]
-    ae_atoms = ae.active_exploration(atoms, movable_atoms_indices=movable_atoms_indices, gamma_lo=None)
+    ae_atoms = ae.active_exploration(
+        atoms, movable_atoms_indices=movable_atoms_indices, gamma_lo=None
+    )
 
     print(ae_atoms)
     sp = ae_atoms.get_scaled_positions()

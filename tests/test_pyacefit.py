@@ -47,7 +47,9 @@ def prepare_test_basis_configuration():
     bBasisConfiguration.deltaSplineBins = 0.001
     block = create_block(NLMAX=NLMAX, NRADMAX=NRADMAX, NRADBASE=NRADBASE, NDENS=NDENS)
     block.funcspecs = [
-        BBasisFunctionSpecification(elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.] * NDENS)
+        BBasisFunctionSpecification(
+            elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.0] * NDENS
+        )
     ]
     bBasisConfiguration.funcspecs_blocks = [block]
     return bBasisConfiguration
@@ -63,12 +65,21 @@ def prepare_test_basis_configuration_extended():
     bBasisConfiguration.deltaSplineBins = 0.001
     block = create_block(NLMAX=NLMAX, NRADMAX=NRADMAX, NRADBASE=NRADBASE, NDENS=1)
     block.funcspecs = [
-        BBasisFunctionSpecification(elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.]),
-        BBasisFunctionSpecification(elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1.]),
-
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[1, 1], ls=[0], coeffs=[0.01]),
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[1, 2], ls=[1], coeffs=[0.01]),
-        BBasisFunctionSpecification(elements=["Al", "Al", "Al"], ns=[2, 2], ls=[0], coeffs=[0.01]),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al"], ns=[1], ls=[0], coeffs=[1.0]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1.0]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[1, 1], ls=[0], coeffs=[0.01]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[1, 2], ls=[1], coeffs=[0.01]
+        ),
+        BBasisFunctionSpecification(
+            elements=["Al", "Al", "Al"], ns=[2, 2], ls=[0], coeffs=[0.01]
+        ),
     ]
     bBasisConfiguration.funcspecs_blocks = [block]
     return bBasisConfiguration
@@ -79,16 +90,29 @@ def test_fit_serial():
     df = get_reference_dataset(PYACE_EVAL, TESTS_DF_PCKL)
     print("train dataset shape:", df.shape)
     df["fweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.ones(n))
-    df["eweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.array([1.]).reshape(-1, ))
-    df['w_forces'] = df["fweights"].copy()
-    df['w_energy'] = df["eweights"].copy()
+    df["eweights"] = df["NUMBER_OF_ATOMS"].map(
+        lambda n: np.array([1.0]).reshape(
+            -1,
+        )
+    )
+    df["w_forces"] = df["fweights"].copy()
+    df["w_energy"] = df["eweights"].copy()
 
     bBasisConfiguration = prepare_test_basis_configuration()
-    loss_spec = LossFunctionSpecification(kappa=0.1, w1_coeffs=0, )
-    fit = PyACEFit(bBasisConfiguration,
-                   loss_spec=loss_spec,
-                   executors_kw_args=dict(parallel_mode="serial"))
-    fit.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 2, "disp": True})
+    loss_spec = LossFunctionSpecification(
+        kappa=0.1,
+        w1_coeffs=0,
+    )
+    fit = PyACEFit(
+        bBasisConfiguration,
+        loss_spec=loss_spec,
+        executors_kw_args=dict(parallel_mode="serial"),
+    )
+    fit.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 2, "disp": True},
+    )
 
     print("fit._losses=", fit.last_loss)
     print("fit.best_params=", fit.best_params)
@@ -101,23 +125,47 @@ def test_fit_serial2():
     df = get_reference_dataset(PYACE_EVAL, TESTS_DF_PCKL)
     print("train dataset shape:", df.shape)
     df["fweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.ones(n))
-    df["eweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.array([1.]).reshape(-1, ))
-    df['w_forces'] = df["fweights"].copy()
-    df['w_energy'] = df["eweights"].copy()
+    df["eweights"] = df["NUMBER_OF_ATOMS"].map(
+        lambda n: np.array([1.0]).reshape(
+            -1,
+        )
+    )
+    df["w_forces"] = df["fweights"].copy()
+    df["w_energy"] = df["eweights"].copy()
 
     bBasisConfiguration = prepare_test_basis_configuration_extended()
 
-    fit = PyACEFit(bBasisConfiguration,
-
-                   loss_spec=LossFunctionSpecification(kappa=0.1),
-                   executors_kw_args=dict(parallel_mode="serial"))
-    fit.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 5, "disp": True})
+    fit = PyACEFit(
+        bBasisConfiguration,
+        loss_spec=LossFunctionSpecification(kappa=0.1),
+        executors_kw_args=dict(parallel_mode="serial"),
+    )
+    fit.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 5, "disp": True},
+    )
 
     print("fit.lasst_loss=", fit.last_loss)
     print("fit.best_params=", fit.best_params)
-    assert np.allclose(fit.best_params, [1.01153846, 1.01153846, 1.01153846, 1.01153846, 1.01153846,
-                                         1.01153846, 1.01153846, 1.01153846, 0.9, 1.01153846,
-                                         0.01011538, 0.01011538, 0.01011538])
+    assert np.allclose(
+        fit.best_params,
+        [
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            0.9,
+            1.01153846,
+            0.01011538,
+            0.01011538,
+            0.01011538,
+        ],
+    )
 
 
 def test_fit_process():
@@ -126,15 +174,24 @@ def test_fit_process():
     print("train dataset shape:", df.shape)
     bBasisConfiguration = prepare_test_basis_configuration()
     df["fweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.ones(n))
-    df["eweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.array([1.]).reshape(-1, ))
-    df['w_forces'] = df["fweights"].copy()
-    df['w_energy'] = df["eweights"].copy()
+    df["eweights"] = df["NUMBER_OF_ATOMS"].map(
+        lambda n: np.array([1.0]).reshape(
+            -1,
+        )
+    )
+    df["w_forces"] = df["fweights"].copy()
+    df["w_energy"] = df["eweights"].copy()
 
-    fit = PyACEFit(bBasisConfiguration,
-
-                   loss_spec=LossFunctionSpecification(kappa=0.1),
-                   executors_kw_args=dict(parallel_mode="process"))
-    fit.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 2, "disp": True})
+    fit = PyACEFit(
+        bBasisConfiguration,
+        loss_spec=LossFunctionSpecification(kappa=0.1),
+        executors_kw_args=dict(parallel_mode="process"),
+    )
+    fit.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 2, "disp": True},
+    )
 
     print("fit.last_loss=", fit.last_loss)
     print("fit.best_params=", fit.best_params)
@@ -147,24 +204,48 @@ def test_fit_process2():
     df = get_reference_dataset(PYACE_EVAL, TESTS_DF_PCKL)
     print("train dataset shape:", df.shape)
     df["fweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.ones(n))
-    df["eweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.array([1.]).reshape(-1, ))
-    df['w_forces'] = df["fweights"].copy()
-    df['w_energy'] = df["eweights"].copy()
+    df["eweights"] = df["NUMBER_OF_ATOMS"].map(
+        lambda n: np.array([1.0]).reshape(
+            -1,
+        )
+    )
+    df["w_forces"] = df["fweights"].copy()
+    df["w_energy"] = df["eweights"].copy()
 
     bBasisConfiguration = prepare_test_basis_configuration_extended()
 
-    fit = PyACEFit(bBasisConfiguration,
-
-                   loss_spec=LossFunctionSpecification(kappa=0.1),
-                   executors_kw_args=dict(parallel_mode="process"))
-    fit.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 5, "disp": True})
+    fit = PyACEFit(
+        bBasisConfiguration,
+        loss_spec=LossFunctionSpecification(kappa=0.1),
+        executors_kw_args=dict(parallel_mode="process"),
+    )
+    fit.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 5, "disp": True},
+    )
 
     print("fit.last_loss=", fit.last_loss)
     print("fit.best_params=", fit.best_params)
     assert np.allclose(fit.last_loss, 2442.6636983990384)
-    assert np.allclose(fit.best_params, [1.01153846, 1.01153846, 1.01153846, 1.01153846, 1.01153846,
-                                         1.01153846, 1.01153846, 1.01153846, 0.9, 1.01153846,
-                                         0.01011538, 0.01011538, 0.01011538])
+    assert np.allclose(
+        fit.best_params,
+        [
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            1.01153846,
+            0.9,
+            1.01153846,
+            0.01011538,
+            0.01011538,
+            0.01011538,
+        ],
+    )
 
 
 def test_fit_value_error_nrad():
@@ -175,7 +256,9 @@ def test_fit_value_error_nrad():
 
     with pytest.raises(ValueError):
         block.funcspecs += [
-            BBasisFunctionSpecification(elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1, 2])
+            BBasisFunctionSpecification(
+                elements=["Al", "Al"], ns=[2], ls=[0], coeffs=[1, 2]
+            )
         ]
 
 
@@ -184,16 +267,29 @@ def test_fit_contiunation():
     df = get_reference_dataset(PYACE_EVAL, TESTS_DF_PCKL)
     print("train dataset shape:", df.shape)
     df["fweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.ones(n))
-    df["eweights"] = df["NUMBER_OF_ATOMS"].map(lambda n: np.array([1.]).reshape(-1, ))
-    df['w_forces'] = df["fweights"].copy()
-    df['w_energy'] = df["eweights"].copy()
+    df["eweights"] = df["NUMBER_OF_ATOMS"].map(
+        lambda n: np.array([1.0]).reshape(
+            -1,
+        )
+    )
+    df["w_forces"] = df["fweights"].copy()
+    df["w_energy"] = df["eweights"].copy()
 
     bBasisConfiguration = prepare_test_basis_configuration()
-    loss_spec = LossFunctionSpecification(kappa=0.1, w1_coeffs=0, )
-    fit = PyACEFit(bBasisConfiguration,
-                   loss_spec=loss_spec,
-                   executors_kw_args=dict(parallel_mode="serial"))
-    fit.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 20, "disp": True})
+    loss_spec = LossFunctionSpecification(
+        kappa=0.1,
+        w1_coeffs=0,
+    )
+    fit = PyACEFit(
+        bBasisConfiguration,
+        loss_spec=loss_spec,
+        executors_kw_args=dict(parallel_mode="serial"),
+    )
+    fit.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 20, "disp": True},
+    )
     print("fit.last_loss=", fit.last_loss)
     print("fit.params_opt=", fit.params_opt)
     fit.bbasis_opt.save("cont.yaml")
@@ -203,14 +299,23 @@ def test_fit_contiunation():
 
     bBasisConfiguration_cont = BBasisConfiguration("cont.yaml")
 
-    loss_spec = LossFunctionSpecification(kappa=0.1, w1_coeffs=0, )
-    fit2 = PyACEFit(bBasisConfiguration_cont,
-                    loss_spec=loss_spec,
-                    executors_kw_args=dict(parallel_mode="serial"))
+    loss_spec = LossFunctionSpecification(
+        kappa=0.1,
+        w1_coeffs=0,
+    )
+    fit2 = PyACEFit(
+        bBasisConfiguration_cont,
+        loss_spec=loss_spec,
+        executors_kw_args=dict(parallel_mode="serial"),
+    )
     all_params_cont = fit2.bbasis.all_coeffs
     assert all_params1 == all_params_cont
 
-    fit2.fit(structures_dataframe=df, method="Nelder-Mead", options={"maxiter": 20, "disp": True})
+    fit2.fit(
+        structures_dataframe=df,
+        method="Nelder-Mead",
+        options={"maxiter": 20, "disp": True},
+    )
     print("fit2.last_loss=", fit2.last_loss)
 
     assert np.allclose(fit.last_loss, fit2.initial_loss)
@@ -263,7 +368,9 @@ def test_fit_predict_bbasis_projections():
     block = basis_conf.funcspecs_blocks[0]
     funcs = block.funcspecs
     print("len funcs=", len(funcs))
-    tot_df = pd.concat([df, proj_df, pd.DataFrame(np.vstack(proj_df["single_proj"]))], axis=1)
+    tot_df = pd.concat(
+        [df, proj_df, pd.DataFrame(np.vstack(proj_df["single_proj"]))], axis=1
+    )
     tot_df.drop(["single_proj", "atoms", "atomic_env"], axis=1, inplace=True)
 
     print(tot_df.shape)
@@ -293,7 +400,9 @@ def test_fit_predict_bbasis_config_projections():
     block = basis_conf.funcspecs_blocks[0]
     funcs = block.funcspecs
     print("len funcs=", len(funcs))
-    tot_df = pd.concat([df, proj_df, pd.DataFrame(np.vstack(proj_df["single_proj"]))], axis=1)
+    tot_df = pd.concat(
+        [df, proj_df, pd.DataFrame(np.vstack(proj_df["single_proj"]))], axis=1
+    )
     tot_df.drop(["single_proj", "atoms", "atomic_env"], axis=1, inplace=True)
 
     print(tot_df.shape)

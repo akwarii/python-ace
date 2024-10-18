@@ -11,7 +11,7 @@ from setuptools.command.install import install
 
 import versioneer
 
-with open('README.md') as readme_file:
+with open("README.md") as readme_file:
     readme = readme_file.read()
 
 
@@ -21,9 +21,7 @@ class InstallMaxVolPyLocalPackage(install):
         cmd = "cd lib/maxvolpy; python setup.py install; cd ../.."
         if platform.system() != "Windows":
             cmd = "pip install Cython; " + cmd
-        returncode = subprocess.call(
-            cmd, shell=True
-        )
+        returncode = subprocess.call(cmd, shell=True)
         if returncode != 0:
             print("=" * 40)
             print("=" * 16, "WARNING", "=" * 17)
@@ -52,13 +50,11 @@ class CMakeExtension(Extension):
 
 
 class CMakeBuild(build_ext):
-
     def build_extension(self, ext: CMakeExtension) -> None:
         try:
-            out = subprocess.check_output(['cmake', '--version'])
+            out = subprocess.check_output(["cmake", "--version"])
         except OSError:
-            raise RuntimeError(
-                "CMake must be installed to build the extensions")
+            raise RuntimeError("CMake must be installed to build the extensions")
         self.parallel = os.cpu_count() - 1
         if self.parallel < 1:
             self.parallel = 1
@@ -157,59 +153,63 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
         )
         args = ["cmake", "--build", ".", *build_args]
-        subprocess.run(
-            args, cwd=build_temp, check=True
-        )
+        subprocess.run(args, cwd=build_temp, check=True)
 
 
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name='pyace',
+    name="pyace",
     version=versioneer.get_version(),
-    author='Yury Lysogorskiy, Anton Bochkarev, Sarath Menon, Ralf Drautz',
-    author_email='yury.lysogorskiy@rub.de',
+    author="Yury Lysogorskiy, Anton Bochkarev, Sarath Menon, Ralf Drautz",
+    author_email="yury.lysogorskiy@rub.de",
     description='Python bindings, utilities  for PACE and fitting code "pacemaker"',
     long_description=readme,
-    long_description_content_type='text/markdown',
-
+    long_description_content_type="text/markdown",
     # tell setuptools to look for any packages under 'src'
-    packages=find_packages('src'),
+    packages=find_packages("src"),
     # tell setuptools that all packages will be under the 'src' directory
     # and nowhere else
-    package_dir={'': 'src'},
-
+    package_dir={"": "src"},
     # add an extension module named 'python_cpp_example' to the package
-    ext_modules=[CMakeExtension('pyace/sharmonics', target='sharmonics'),
-                 CMakeExtension('pyace/coupling', target='coupling'),
-                 CMakeExtension('pyace/basis', target='basis'),
-                 CMakeExtension('pyace/evaluator', target='evaluator'),
-                 CMakeExtension('pyace/catomicenvironment', target='catomicenvironment'),
-                 CMakeExtension('pyace/calculator', target='calculator'),
-                 ],
-    # add custom build_ext command
-    cmdclass=versioneer.get_cmdclass(dict(install=InstallMaxVolPyLocalPackage,
-                                          build_ext=CMakeBuild)),
-    zip_safe=False,
-    url='https://github.com/ICAMS/python-ace',
-    install_requires=['numpy<=1.26.4',
-                      'ase',
-                      'pandas<=2.0',
-                      'ruamel.yaml',
-                      'psutil',
-                      'scikit-learn<=1.4.2'
-                      ],
-    classifiers=[
-        'Programming Language :: Python :: 3',
+    ext_modules=[
+        CMakeExtension("pyace/sharmonics", target="sharmonics"),
+        CMakeExtension("pyace/coupling", target="coupling"),
+        CMakeExtension("pyace/basis", target="basis"),
+        CMakeExtension("pyace/evaluator", target="evaluator"),
+        CMakeExtension("pyace/catomicenvironment", target="catomicenvironment"),
+        CMakeExtension("pyace/calculator", target="calculator"),
     ],
-    package_data={"pyace.data": [
-        "mus_ns_uni_to_rawlsLS_np_rank.pckl",
-        "input_template.yaml"
-    ]},
-    scripts=["bin/pacemaker", "bin/pace_yaml2yace",
-             "bin/pace_timing", "bin/pace_info",
-             "bin/pace_activeset", "bin/pace_select",
-             "bin/pace_collect", "bin/pace_augment", "bin/pace_corerep"],
-
-    python_requires=">=3.8"
+    # add custom build_ext command
+    cmdclass=versioneer.get_cmdclass(
+        dict(install=InstallMaxVolPyLocalPackage, build_ext=CMakeBuild)
+    ),
+    zip_safe=False,
+    url="https://github.com/ICAMS/python-ace",
+    install_requires=[
+        "numpy<=1.26.4",
+        "ase",
+        "pandas<=2.0",
+        "ruamel.yaml",
+        "psutil",
+        "scikit-learn<=1.4.2",
+    ],
+    classifiers=[
+        "Programming Language :: Python :: 3",
+    ],
+    package_data={
+        "pyace.data": ["mus_ns_uni_to_rawlsLS_np_rank.pckl", "input_template.yaml"]
+    },
+    scripts=[
+        "bin/pacemaker",
+        "bin/pace_yaml2yace",
+        "bin/pace_timing",
+        "bin/pace_info",
+        "bin/pace_activeset",
+        "bin/pace_select",
+        "bin/pace_collect",
+        "bin/pace_augment",
+        "bin/pace_corerep",
+    ],
+    python_requires=">=3.8",
 )

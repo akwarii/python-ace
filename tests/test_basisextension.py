@@ -10,7 +10,6 @@ test_potential_config = {
     "fs_parameters": [1, 1],  # , 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 2,
     "nradmax_by_orders": [4, 3],
     "lmax_by_orders": [0, 1],
@@ -19,7 +18,7 @@ test_potential_config = {
     "dcut": 0.01,
     "radparameters": [5.25],
     "radbase": "ChebExpCos",
-    'basisdf': 'data/pyace_bbasisfunc_df_rho2.pckl',
+    "basisdf": "data/pyace_bbasisfunc_df_rho2.pckl",
 }
 
 
@@ -32,14 +31,17 @@ def print_basisconfig(basis):
         print("\t-", func)
 
 
-@pytest.mark.parametrize("pot_file_name, step", [
-    ("tests/Al-r1l0.yaml", 1),
-    ("tests/Al-r1l0.yaml", 2),
-    ("tests/Al-r1l0.yaml", 10),
-    ("tests/Al-r1l0.yaml", 15),
-    ("tests/Al-r1l0.yaml", 16),
-    ("tests/Al-r1l0.yaml", 20),
-])
+@pytest.mark.parametrize(
+    "pot_file_name, step",
+    [
+        ("tests/Al-r1l0.yaml", 1),
+        ("tests/Al-r1l0.yaml", 2),
+        ("tests/Al-r1l0.yaml", 10),
+        ("tests/Al-r1l0.yaml", 15),
+        ("tests/Al-r1l0.yaml", 16),
+        ("tests/Al-r1l0.yaml", 20),
+    ],
+)
 def test_extend_basis_grow(pot_file_name, step):
     old_basis = BBasisConfiguration(pot_file_name)
     new_basis = construct_bbasisconfiguration(test_potential_config)
@@ -61,7 +63,9 @@ def test_extend_basis_grow(pot_file_name, step):
     ext_basis = old_basis
     for _ in range((new_num_of_funcs - old_num_of_funcs) // step + 1):
         ext_num_of_funcs = len(ext_basis.funcspecs_blocks[0].funcspecs)
-        ext_basis, is_extended = extend_basis(ext_basis, new_basis, 'body_order', step, return_is_extended = True)
+        ext_basis, is_extended = extend_basis(
+            ext_basis, new_basis, "body_order", step, return_is_extended=True
+        )
         print("curr_ext_basis=")
         print_basisconfig(ext_basis)
         new_ext_funcs = ext_basis.funcspecs_blocks[0].funcspecs
@@ -75,6 +79,7 @@ def test_extend_basis_grow(pot_file_name, step):
             for f in new_ext_funcs:
                 print("\t- ", f)
             assert all_new_funcs[:new_ext_num_of_funcs] != new_ext_funcs
+
 
 # @pytest.mark.xfail
 # @pytest.mark.parametrize("pot_file_name, step", [
@@ -200,7 +205,9 @@ def test_extend_basis_equal(step=1):
     current_bbasis = initial_basis
     while True:
         print("=" * 20, "it = ", it)
-        current_bbasis, is_extended = extend_basis(current_bbasis, target_basis, 'body_order', step, return_is_extended = True)
+        current_bbasis, is_extended = extend_basis(
+            current_bbasis, target_basis, "body_order", step, return_is_extended=True
+        )
         print("curr_ext_basis=")
         print_basisconfig(current_bbasis)
         if not is_extended:
@@ -225,7 +232,9 @@ def test_extend_basis_equal_power_order(step=1):
     current_bbasis = initial_basis
     while True:
         print("=" * 20, "it = ", it)
-        current_bbasis, is_extended = extend_basis(current_bbasis, target_basis, 'power_order', step, return_is_extended = True)
+        current_bbasis, is_extended = extend_basis(
+            current_bbasis, target_basis, "power_order", step, return_is_extended=True
+        )
         print("curr_ext_basis=")
         print_basisconfig(current_bbasis)
         if not is_extended:
@@ -243,7 +252,6 @@ test_potential_config1 = {
     "fs_parameters": [1, 1],  # 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 3,
     "nradmax_by_orders": [4, 3, 2],
     "lmax_by_orders": [0, 1, 1],
@@ -252,7 +260,7 @@ test_potential_config1 = {
     "dcut": 0.01,
     "radparameters": [5.25],
     "radbase": "ChebExpCos",
-    'basisdf': 'data/pyace_bbasisfunc_df_rho2.pckl',
+    "basisdf": "data/pyace_bbasisfunc_df_rho2.pckl",
 }
 
 # @pytest.mark.xfail
@@ -290,7 +298,6 @@ test_potential_config2 = {
     "fs_parameters": [1, 1],  # 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 4,
     "nradmax_by_orders": [4, 3, 2, 1],
     "lmax_by_orders": [0, 2, 1, 1],
@@ -299,7 +306,7 @@ test_potential_config2 = {
     "dcut": 0.01,
     "radparameters": [5.25],
     "radbase": "ChebExpCos",
-    'basisdf': './data/pyace_bbasisfunc_df_rho2.pckl',
+    "basisdf": "./data/pyace_bbasisfunc_df_rho2.pckl",
 }
 
 
@@ -338,7 +345,6 @@ test_potential_config3 = {
     "fs_parameters": [1, 1],  # 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 3,
     "nradmax_by_orders": [3, 2, 2],
     "lmax_by_orders": [0, 2, 1],
@@ -347,7 +353,7 @@ test_potential_config3 = {
     "dcut": 0.01,
     "radparameters": [5.25],
     "radbase": "ChebExpCos",
-    'basisdf': './data/pyace_bbasisfunc_df_rho2.pckl',
+    "basisdf": "./data/pyace_bbasisfunc_df_rho2.pckl",
 }
 
 # @pytest.mark.xfail
@@ -391,7 +397,6 @@ test_potential_config_large = {
     "fs_parameters": [1, 1],  # 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 6,
     "nradmax_by_orders": [15, 5, 4, 1, 1, 1],
     "lmax_by_orders": [0, 6, 4, 2, 1, 1],
@@ -411,7 +416,9 @@ def test_extend_large_basis_grow():
     old_num_of_funcs = 1
     new_basis = construct_bbasisconfiguration(test_potential_config_large)
 
-    true_bconf = construct_bbasisconfiguration(test_potential_config_large) #BBasisConfiguration("tests/Cu.pbe.in.yaml")
+    true_bconf = construct_bbasisconfiguration(
+        test_potential_config_large
+    )  # BBasisConfiguration("tests/Cu.pbe.in.yaml")
     all_new_funcs = new_basis.funcspecs_blocks[0].funcspecs
     all_true_funcs = true_bconf.funcspecs_blocks[0].funcspecs
     new_num_of_funcs = len(all_new_funcs)
@@ -428,7 +435,9 @@ def test_extend_large_basis_grow():
     ext_basis = old_basis
     while True:
         ext_num_of_funcs = len(ext_basis.funcspecs_blocks[0].funcspecs)
-        ext_basis, is_extended = extend_basis(ext_basis, new_basis, 'body_order', step, return_is_extended = True)
+        ext_basis, is_extended = extend_basis(
+            ext_basis, new_basis, "body_order", step, return_is_extended=True
+        )
         # print("curr_ext_basis=")
         # print_basisconfig(ext_basis)
         new_ext_funcs = ext_basis.funcspecs_blocks[0].funcspecs
@@ -445,7 +454,7 @@ def test_extend_large_basis_grow():
             break
 
     assert new_ext_num_of_funcs == new_num_of_funcs
-    assert len(ext_basis.funcspecs_blocks)==1
+    assert len(ext_basis.funcspecs_blocks) == 1
 
     all_ext_funcs = ext_basis.funcspecs_blocks[0].funcspecs
     ext_num_of_funcs = len(all_ext_funcs)
@@ -462,19 +471,29 @@ def test_extend_large_basis_grow():
     print("Number of  expected function:", len(all_true_set))
     print("Number of actually extended functions:", len(all_ext_funcs))
 
-    diff1 = sorted(all_ext_set - all_true_set, key=lambda d: (len(d[0]), d[0], d[1], d[2]))
-    diff2 = sorted(all_true_set - all_ext_set, key=lambda d: (len(d[0]), d[0], d[1], d[2]))
+    diff1 = sorted(
+        all_ext_set - all_true_set, key=lambda d: (len(d[0]), d[0], d[1], d[2])
+    )
+    diff2 = sorted(
+        all_true_set - all_ext_set, key=lambda d: (len(d[0]), d[0], d[1], d[2])
+    )
 
     print("SHOULD NOT BE BUT EXISTS")
     for comb in diff1:
-        print(comb, " alternatives in TRUE found:",
-              list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_true_set)))
+        print(
+            comb,
+            " alternatives in TRUE found:",
+            list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_true_set)),
+        )
 
     print("\n" * 2)
     print("SHOULD BE BUT MISSED")
     for comb in diff2:
-        print(comb, " alternatives in PROPOSED found:",
-              list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_ext_set)))
+        print(
+            comb,
+            " alternatives in PROPOSED found:",
+            list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_ext_set)),
+        )
 
     assert len(all_true_set) == 684
     assert len(all_ext_funcs) == len(all_true_set)
@@ -493,7 +512,9 @@ def test_extend_large_basis_grow():
     true_df["ls"] = true_df["spec"].map(lambda f: tuple(f.ls))
     true_df["LS"] = true_df["spec"].map(lambda f: tuple(f.LS))
 
-    assert (true_df[["ns", "ls", "LS"]] == new_df[["ns", "ls", "LS"]]).all().all(), "Basis inconsistent"
+    assert (
+        (true_df[["ns", "ls", "LS"]] == new_df[["ns", "ls", "LS"]]).all().all()
+    ), "Basis inconsistent"
 
 
 # @pytest.mark.xfail
@@ -503,7 +524,9 @@ def test_extend_large_basis_grow_power_order():
     old_num_of_funcs = 1
     new_basis = construct_bbasisconfiguration(test_potential_config_large)
 
-    true_bconf = construct_bbasisconfiguration(test_potential_config_large) # BBasisConfiguration("tests/Cu.pbe.in.yaml")
+    true_bconf = construct_bbasisconfiguration(
+        test_potential_config_large
+    )  # BBasisConfiguration("tests/Cu.pbe.in.yaml")
     all_new_funcs = new_basis.funcspecs_blocks[0].funcspecs
     all_true_funcs = true_bconf.funcspecs_blocks[0].funcspecs
     new_num_of_funcs = len(all_new_funcs)
@@ -520,7 +543,9 @@ def test_extend_large_basis_grow_power_order():
     ext_basis = old_basis
     while True:
         ext_num_of_funcs = len(ext_basis.funcspecs_blocks[0].funcspecs)
-        ext_basis, is_extended = extend_basis(ext_basis, new_basis, 'power_order', step, return_is_extended = True)
+        ext_basis, is_extended = extend_basis(
+            ext_basis, new_basis, "power_order", step, return_is_extended=True
+        )
         # print("curr_ext_basis=")
         # print_basisconfig(ext_basis)
         new_ext_funcs = ext_basis.funcspecs_blocks[0].funcspecs
@@ -553,19 +578,29 @@ def test_extend_large_basis_grow_power_order():
     print("Number of  expected function:", len(all_true_set))
     print("Number of actually extended functions:", len(all_ext_funcs))
 
-    diff1 = sorted(all_ext_set - all_true_set, key=lambda d: (len(d[0]), d[0], d[1], d[2]))
-    diff2 = sorted(all_true_set - all_ext_set, key=lambda d: (len(d[0]), d[0], d[1], d[2]))
+    diff1 = sorted(
+        all_ext_set - all_true_set, key=lambda d: (len(d[0]), d[0], d[1], d[2])
+    )
+    diff2 = sorted(
+        all_true_set - all_ext_set, key=lambda d: (len(d[0]), d[0], d[1], d[2])
+    )
 
     print("SHOULD NOT BE BUT EXISTS")
     for comb in diff1:
-        print(comb, " alternatives in TRUE found:",
-              list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_true_set)))
+        print(
+            comb,
+            " alternatives in TRUE found:",
+            list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_true_set)),
+        )
 
     print("\n" * 2)
     print("SHOULD BE BUT MISSED")
     for comb in diff2:
-        print(comb, " alternatives in PROPOSED found:",
-              list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_ext_set)))
+        print(
+            comb,
+            " alternatives in PROPOSED found:",
+            list(filter(lambda d: (d[0] == comb[0] and d[1] == comb[1]), all_ext_set)),
+        )
 
     assert len(all_true_set) == 684
     assert len(all_ext_funcs) == len(all_true_set)
@@ -584,7 +619,9 @@ def test_extend_large_basis_grow_power_order():
     true_df["ls"] = true_df["spec"].map(lambda f: tuple(f.ls))
     true_df["LS"] = true_df["spec"].map(lambda f: tuple(f.LS))
 
-    assert (true_df[["ns", "ls", "LS"]] == new_df[["ns", "ls", "LS"]]).all().all(), "Basis inconsistent"
+    assert (
+        (true_df[["ns", "ls", "LS"]] == new_df[["ns", "ls", "LS"]]).all().all()
+    ), "Basis inconsistent"
 
 
 test_potential_config_power_grow = {
@@ -593,7 +630,6 @@ test_potential_config_power_grow = {
     "fs_parameters": [1, 1, 1, 0.5],
     "npot": "FinnisSinclair",
     "NameOfCutoffFunction": "cos",
-
     # "rankmax": 4,
     "nradmax_by_orders": [12, 7, 4, 2],
     "lmax_by_orders": [0, 4, 2, 2],
@@ -602,7 +638,7 @@ test_potential_config_power_grow = {
     "dcut": 0.01,
     "radparameters": [5.25],
     "radbase": "ChebExpCos",
-    'basisdf': 'data/pyace_selected_bbasis_funcspec.pckl.gzip',
+    "basisdf": "data/pyace_selected_bbasis_funcspec.pckl.gzip",
 }
 
 
@@ -725,7 +761,7 @@ def test_construct_bbasisconfiguration_SBessel():
         "rcut": 5,
         "dcut": 0.01,
         "radparameters": [5.25],
-        "radbase": "TEST_SBessel"
+        "radbase": "TEST_SBessel",
     }
     basisconf = construct_bbasisconfiguration(pot_config)
     basis_spec_list = basisconf.funcspecs_blocks[0].funcspecs

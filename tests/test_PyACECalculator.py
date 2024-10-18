@@ -32,8 +32,10 @@ def test_setup():
     block.radcoefficients = [[[1]]]
 
     block.funcspecs = [
-        BBasisFunctionSpecification(["Al", "Al"], ns=[1], ls=[0], LS=[], coeffs=[1.]),
-        BBasisFunctionSpecification(["Al", "Al", "Al"], ns=[1, 1], ls=[0, 0], LS=[], coeffs=[2])
+        BBasisFunctionSpecification(["Al", "Al"], ns=[1], ls=[0], LS=[], coeffs=[1.0]),
+        BBasisFunctionSpecification(
+            ["Al", "Al", "Al"], ns=[1, 1], ls=[0, 0], LS=[], coeffs=[2]
+        ),
     ]
 
     basisConfiguration = BBasisConfiguration()
@@ -44,7 +46,7 @@ def test_setup():
     print(a)
     calc = PyACECalculator(basis_set=basisConfiguration)
     a.set_calculator(calc)
-    e1 = (a.get_potential_energy())
+    e1 = a.get_potential_energy()
     f1 = a.get_forces()
     print(e1)
     print(f1)
@@ -55,7 +57,7 @@ def test_load_YAML():
     print(a)
     calc = PyACECalculator(basis_set="tests/Al.pbe.13.2.yaml")
     a.set_calculator(calc)
-    e1 = (a.get_potential_energy())
+    e1 = a.get_potential_energy()
     f1 = a.get_forces()
     print(e1)
     print(f1)
@@ -66,13 +68,13 @@ def test_load_ace():
     print(a)
     calc = PyACECalculator(basis_set="tests/Al.pbe.rhocore.ace")
     a.set_calculator(calc)
-    e1 = (a.get_potential_energy())
+    e1 = a.get_potential_energy()
     f1 = a.get_forces()
     print(e1)
     print(f1)
 
     e0 = 89.15966867577228
-    f0 = np.array([[0., 0., -193.82052454], [0., 0., 193.82052454]])
+    f0 = np.array([[0.0, 0.0, -193.82052454], [0.0, 0.0, 193.82052454]])
 
     assert np.allclose(e0, e1)
     assert np.allclose(f0, f1)
@@ -81,15 +83,17 @@ def test_load_ace():
 def test_load_ace_recursive():
     a = create_dimer(1)
     print(a)
-    calc = PyACECalculator(basis_set="tests/Al.pbe.rhocore.ace", recursive_evaluator=True, recursive=True)
+    calc = PyACECalculator(
+        basis_set="tests/Al.pbe.rhocore.ace", recursive_evaluator=True, recursive=True
+    )
     a.set_calculator(calc)
-    e1 = (a.get_potential_energy())
+    e1 = a.get_potential_energy()
     f1 = a.get_forces()
     print(e1)
     print(f1)
 
     e0 = 89.15966867577228
-    f0 = np.array([[0., 0., -193.82052454], [0., 0., 193.82052454]])
+    f0 = np.array([[0.0, 0.0, -193.82052454], [0.0, 0.0, 193.82052454]])
 
     assert np.allclose(e0, e1)
     assert np.allclose(f0, f1)
@@ -226,7 +230,7 @@ def test_PyACEEnsembleCalculator():
     calc = PyACEEnsembleCalculator(basis_set=basis_sets)
     a = create_dimer(1)
     a.set_calculator(calc)
-    e1 = (a.get_potential_energy())
+    e1 = a.get_potential_energy()
     f1 = a.get_forces()
     print(e1)
     print(f1)
@@ -240,7 +244,9 @@ def test_ZBL_analytical_derivative():
         num_forces = calc.calculate_numerical_forces(at, d=1e-6)
         an_forces = at.get_forces()
         print(f"{num_forces=}, {an_forces=}")
-        assert np.allclose(num_forces, an_forces), msg+f": {num_forces=}, {an_forces=}"
+        assert np.allclose(num_forces, an_forces), (
+            msg + f": {num_forces=}, {an_forces=}"
+        )
 
     at = Atoms("H2", positions=[[0, 0, 0], [0, 0, 4]])  # ACE
     check(at, "ACE forces are inconsistent")

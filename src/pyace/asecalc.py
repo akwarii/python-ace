@@ -3,7 +3,10 @@ import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
 from ase.io import write
 
-from pyace.atomicenvironment import aseatoms_to_atomicenvironment_old, aseatoms_to_atomicenvironment
+from pyace.atomicenvironment import (
+    aseatoms_to_atomicenvironment_old,
+    aseatoms_to_atomicenvironment,
+)
 from pyace.basis import ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration
 from pyace.calculator import ACECalculator
 from pyace.catomicenvironment import ACEAtomicEnvironment
@@ -20,29 +23,30 @@ class PyACECalculator(Calculator):
                       ACECTildeBasisSet object
                       BBasisConfiguration object
     """
-    implemented_properties = ['energy', 'forces', 'stress', 'energies', 'free_energy']
+
+    implemented_properties = ["energy", "forces", "stress", "energies", "free_energy"]
 
     def __init__(self, basis_set, **kwargs):
         """
-PyACE ASE calculator
-:param basis_set - specification of ACE potential, could be in following forms:
-                  ".ace" potential filename
-                  ".yaml" potential filename
-                  ACEBBasisSet object
-                  ACECTildeBasisSet object
-                  BBasisConfiguration object
-:param recursive_evaluator (default: False)
-:param recursive (default: False)
-:param keep_extrapolative_structures (default: False)
-:param dump_extrapolative_structures (default: False)
-:param gamma_lower_bound (default: 1.1)
-:param gamma_upper_bound (default: 5.0)
-:param stop_at_large_extrapolation (default: False)
-:param verbose (default: 0).   0 - no extrapolation output,
-                               1 - output for upper-bound extrapolation
-                               2 - output for upper- and lower-bound extrapolation
-                               3 - output for all interpolation/extrapolation calculations
-"""
+        PyACE ASE calculator
+        :param basis_set - specification of ACE potential, could be in following forms:
+                          ".ace" potential filename
+                          ".yaml" potential filename
+                          ACEBBasisSet object
+                          ACECTildeBasisSet object
+                          BBasisConfiguration object
+        :param recursive_evaluator (default: False)
+        :param recursive (default: False)
+        :param keep_extrapolative_structures (default: False)
+        :param dump_extrapolative_structures (default: False)
+        :param gamma_lower_bound (default: 1.1)
+        :param gamma_upper_bound (default: 5.0)
+        :param stop_at_large_extrapolation (default: False)
+        :param verbose (default: 0).   0 - no extrapolation output,
+                                       1 - output for upper-bound extrapolation
+                                       2 - output for upper- and lower-bound extrapolation
+                                       3 - output for all interpolation/extrapolation calculations
+        """
         if "recursive_evaluator" not in kwargs:
             kwargs["recursive_evaluator"] = False
         if "recursive" not in kwargs:
@@ -65,13 +69,15 @@ PyACE ASE calculator
 
         Calculator.__init__(self, basis_set=basis_set, **kwargs)
         self.nl = None
-        self.skin = 0.
+        self.skin = 0.0
         # self.reset_nl = True  # Set to False for MD simulations
         self.ae = ACEAtomicEnvironment()
 
         self._create_evaluator()
 
-        self.cutoff = self.basis.cutoffmax  # self.parameters.basis_config.funcspecs_blocks[0].rcutij
+        self.cutoff = (
+            self.basis.cutoffmax
+        )  # self.parameters.basis_config.funcspecs_blocks[0].rcutij
 
         self.energy = None
         self.energies = None
@@ -88,7 +94,6 @@ PyACE ASE calculator
         self.compute_projections = True
 
     def _create_evaluator(self):
-
         basis_set = self.parameters.basis_set
         if isinstance(basis_set, BBasisConfiguration):
             self.basis = ACEBBasisSet(self.parameters.basis_set)
@@ -109,7 +114,10 @@ PyACE ASE calculator
 
         if isinstance(self.basis, ACEBBasisSet):
             self.evaluator = ACEBEvaluator(self.basis)
-        elif isinstance(self.basis, ACECTildeBasisSet) and self.parameters.recursive_evaluator:
+        elif (
+            isinstance(self.basis, ACECTildeBasisSet)
+            and self.parameters.recursive_evaluator
+        ):
             self.evaluator = ACERecursiveEvaluator(self.basis)
             self.evaluator.set_recursive(self.parameters.recursive)
         elif isinstance(self.basis, ACECTildeBasisSet):
@@ -118,14 +126,25 @@ PyACE ASE calculator
     def get_atomic_env(self, atoms):
         try:
             if self.parameters.fast_nl:
-                self.ae = aseatoms_to_atomicenvironment(atoms, cutoff=self.cutoff,
-                                                        elements_mapper_dict=self.elements_mapper_dict)
+                self.ae = aseatoms_to_atomicenvironment(
+                    atoms,
+                    cutoff=self.cutoff,
+                    elements_mapper_dict=self.elements_mapper_dict,
+                )
             else:
-                self.ae = aseatoms_to_atomicenvironment_old(atoms, cutoff=self.cutoff,
-                                                            skin=self.skin,
-                                                            elements_mapper_dict=self.elements_mapper_dict)
+                self.ae = aseatoms_to_atomicenvironment_old(
+                    atoms,
+                    cutoff=self.cutoff,
+                    skin=self.skin,
+                    elements_mapper_dict=self.elements_mapper_dict,
+                )
         except KeyError as e:
-            raise ValueError("Unsupported species type: " + str(e) + ". Supported elements: " + str(self.elements_name))
+            raise ValueError(
+                "Unsupported species type: "
+                + str(e)
+                + ". Supported elements: "
+                + str(self.elements_name)
+            )
         return self.ae
 
     def set_active_set(self, filename_or_list_of_active_set_inv):
@@ -137,13 +156,22 @@ PyACE ASE calculator
                 self.evaluator.set_active_set(filename_or_list_of_active_set_inv)
                 self.is_active_set_configured = True
             else:
-                raise ValueError("Unsopported type for `filename_or_list_of_active_set_inv`: {}".format(
-                    type(filename_or_list_of_active_set_inv)))
+                raise ValueError(
+                    "Unsopported type for `filename_or_list_of_active_set_inv`: {}".format(
+                        type(filename_or_list_of_active_set_inv)
+                    )
+                )
         else:
-            raise ValueError("PyACECalculator.set_active_set works only with ACEBEvaluator/B-basis potential(.yaml)")
+            raise ValueError(
+                "PyACECalculator.set_active_set works only with ACEBEvaluator/B-basis potential(.yaml)"
+            )
 
-    def calculate(self, atoms=None, properties=('energy', 'forces', 'stress', 'energies'),
-                  system_changes=all_changes):
+    def calculate(
+        self,
+        atoms=None,
+        properties=("energy", "forces", "stress", "energies"),
+        system_changes=all_changes,
+    ):
         Calculator.calculate(self, atoms, properties, system_changes)
 
         self.energy = 0.0
@@ -164,11 +192,19 @@ PyACE ASE calculator
         self.energies = np.array(self.ace.energies)
 
         self.results = {
-            'energy': np.float64(self.energy.reshape(-1, )),
-            'free_energy': np.float64(self.energy.reshape(-1, )),
-            'forces': self.forces.astype(np.float64),
-            'energies': self.energies.astype(np.float64),
-            'gamma': np.array(self.ace.gamma_grade, dtype=np.float64)
+            "energy": np.float64(
+                self.energy.reshape(
+                    -1,
+                )
+            ),
+            "free_energy": np.float64(
+                self.energy.reshape(
+                    -1,
+                )
+            ),
+            "forces": self.forces.astype(np.float64),
+            "energies": self.energies.astype(np.float64),
+            "gamma": np.array(self.ace.gamma_grade, dtype=np.float64),
         }
         if self.atoms.cell.rank == 3:
             self.volume = atoms.get_volume()
@@ -177,9 +213,14 @@ PyACE ASE calculator
             self.stress = self.virial[[0, 1, 2, 5, 4, 3]] / self.volume
             self.results["stress"] = self.stress
 
-        if (self.parameters.dump_extrapolative_structures or self.parameters.stop_at_large_extrapolation or
-            self.parameters.keep_extrapolative_structures) and not self.is_active_set_configured:
-            raise RuntimeError("Active set is not configured, please do it with `set_active_set` method")
+        if (
+            self.parameters.dump_extrapolative_structures
+            or self.parameters.stop_at_large_extrapolation
+            or self.parameters.keep_extrapolative_structures
+        ) and not self.is_active_set_configured:
+            raise RuntimeError(
+                "Active set is not configured, please do it with `set_active_set` method"
+            )
 
         if self.is_active_set_configured:
             max_gamma = max(self.ace.gamma_grade)
@@ -194,21 +235,30 @@ PyACE ASE calculator
                     self.dump_current_configuration(atoms, max_gamma)
 
             if max_gamma >= self.parameters.gamma_upper_bound:
-                msg = "Upper extrapolation threshold exceeded: max(gamma) = {}".format(max_gamma)
+                msg = "Upper extrapolation threshold exceeded: max(gamma) = {}".format(
+                    max_gamma
+                )
                 if self.parameters.verbose >= 1:
                     print(msg)
                 # stop if extrapolation larger than upper bound if needed
                 if self.parameters.stop_at_large_extrapolation:
                     raise RuntimeError(msg)
-            elif max_gamma >= self.parameters.gamma_lower_bound and self.parameters.verbose >= 2:
-                print("Lower extrapolation threshold exceeded: max(gamma) = {}".format(max_gamma))
+            elif (
+                max_gamma >= self.parameters.gamma_lower_bound
+                and self.parameters.verbose >= 2
+            ):
+                print(
+                    "Lower extrapolation threshold exceeded: max(gamma) = {}".format(
+                        max_gamma
+                    )
+                )
             elif self.parameters.verbose >= 3:
                 print("Extrapolation: max(gamma) = {}".format(max_gamma))
 
     def dump_current_configuration(self, atoms, max_gamma):
-
-        fname = "extrapolation_{ind}_gamma={gamma}.cfg".format(ind=self.current_extrapolation_structure_index,
-                                                               gamma=max_gamma)
+        fname = "extrapolation_{ind}_gamma={gamma}.cfg".format(
+            ind=self.current_extrapolation_structure_index, gamma=max_gamma
+        )
         write(fname, atoms, format="cfg")
         self.current_extrapolation_structure_index += 1
 
@@ -223,21 +273,33 @@ class PyACEEnsembleCalculator(Calculator):
                       ACECTildeBasisSet object
                       BBasisConfiguration object
     """
-    implemented_properties = ['energy', 'forces', 'stress', 'energies', 'free_energy',
-                              'energy_std', 'forces_std', 'stress_std', 'energies_std', 'free_energy_std',
-                              'energy_dev', 'forces_dev', 'stress_dev', 'energies_dev'
-                              ]
+
+    implemented_properties = [
+        "energy",
+        "forces",
+        "stress",
+        "energies",
+        "free_energy",
+        "energy_std",
+        "forces_std",
+        "stress_std",
+        "energies_std",
+        "free_energy_std",
+        "energy_dev",
+        "forces_dev",
+        "stress_dev",
+        "energies_dev",
+    ]
 
     def __init__(self, basis_set, **kwargs):
         """
-PyACE ASE ensemble calculator
-:param basis_set - specification of ACE potential, could be in following forms:
-                  ".ace" potential filename
-                  ".yaml" potential filename
-                  ACEBBasisSet object
-                  ACECTildeBasisSet object
-                  BBasisConfiguration object
-"""
+        PyACE ASE ensemble calculator
+        :param basis_set - specification of ACE potential, could be in following forms:
+                          ".ace" potential filename
+                          ".yaml" potential filename
+                          ACEBBasisSet object
+                          ACECTildeBasisSet object
+                          BBasisConfiguration object"""
         Calculator.__init__(self, basis_set=basis_set, **kwargs)
 
         self.calcs = [PyACECalculator(pot) for pot in basis_set]
@@ -258,10 +320,21 @@ PyACE ASE ensemble calculator
         self.forces_dev = None
         self.stress_dev = None
 
-    def calculate(self, atoms=None, properties=('energy', 'forces', 'stress', 'energies',
-                                                'energy_std', 'forces_std', 'stress_std', 'energies_std',
-                                                ),
-                  system_changes=all_changes):
+    def calculate(
+        self,
+        atoms=None,
+        properties=(
+            "energy",
+            "forces",
+            "stress",
+            "energies",
+            "energy_std",
+            "forces_std",
+            "stress_std",
+            "energies_std",
+        ),
+        system_changes=all_changes,
+    ):
         Calculator.calculate(self, atoms, properties, system_changes)
 
         energy_lst = []
@@ -301,25 +374,41 @@ PyACE ASE ensemble calculator
         # compute maximum deviation of energies and forces
         self.energy_dev = np.max(np.abs(energy_lst - self.energy), axis=0)
         self.energies_dev = np.max(np.abs(energies_lst - self.energies), axis=0)
-        self.forces_dev = np.max(np.linalg.norm(forces_lst - self.forces, axis=2), axis=0)
+        self.forces_dev = np.max(
+            np.linalg.norm(forces_lst - self.forces, axis=2), axis=0
+        )
 
         self.results = {
             # mean
-            'energy': np.float64(self.energy.reshape(-1, )),
-            'free_energy': np.float64(self.energy.reshape(-1, )),
-            'forces': self.forces.astype(np.float64),
-            'energies': self.energies.astype(np.float64),
-
+            "energy": np.float64(
+                self.energy.reshape(
+                    -1,
+                )
+            ),
+            "free_energy": np.float64(
+                self.energy.reshape(
+                    -1,
+                )
+            ),
+            "forces": self.forces.astype(np.float64),
+            "energies": self.energies.astype(np.float64),
             # std
-            'energy_std': np.float64(self.energy_std.reshape(-1, )),
-            'free_energy_std': np.float64(self.energy_std.reshape(-1, )),
-            'forces_std': self.forces_std.astype(np.float64),
-            'energies_std': self.energies_std.astype(np.float64),
-
+            "energy_std": np.float64(
+                self.energy_std.reshape(
+                    -1,
+                )
+            ),
+            "free_energy_std": np.float64(
+                self.energy_std.reshape(
+                    -1,
+                )
+            ),
+            "forces_std": self.forces_std.astype(np.float64),
+            "energies_std": self.energies_std.astype(np.float64),
             # dev
-            'energy_dev': np.float64(self.energy_dev),
-            'energies_dev': np.float64(self.energies_dev),
-            'forces_dev': np.float64(self.forces_dev)
+            "energy_dev": np.float64(self.energy_dev),
+            "energies_dev": np.float64(self.energies_dev),
+            "forces_dev": np.float64(self.forces_dev),
         }
 
         if self.atoms.number_of_lattice_vectors == 3:

@@ -9,7 +9,12 @@ from copy import deepcopy
 from itertools import combinations, permutations, combinations_with_replacement, product
 from typing import Dict, List, Union, Tuple
 
-from pyace import BBasisConfiguration, BBasisFunctionSpecification, BBasisFunctionsSpecificationBlock, ACEBBasisSet
+from pyace import (
+    BBasisConfiguration,
+    BBasisFunctionSpecification,
+    BBasisFunctionsSpecificationBlock,
+    ACEBBasisSet,
+)
 from pyace.basisextension import *
 from pyace.const import *
 
@@ -24,28 +29,142 @@ BINARY = "BINARY"
 TERNARY = "TERNARY"
 QUATERNARY = "QUATERNARY"
 QUINARY = "QUINARY"
-KEYWORDS = [ALL, UNARY, BINARY, TERNARY, QUATERNARY, QUINARY, 'number_of_functions_per_element']
+KEYWORDS = [
+    ALL,
+    UNARY,
+    BINARY,
+    TERNARY,
+    QUATERNARY,
+    QUINARY,
+    "number_of_functions_per_element",
+]
 
 NARY_MAP = {UNARY: 1, BINARY: 2, TERNARY: 3, QUATERNARY: 4, QUINARY: 5}
 PERIODIC_ELEMENTS = chemical_symbols = [
-    'H', 'He',
-    'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',
-    'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',
-    'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn',
-    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-    'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd',
-    'In', 'Sn', 'Sb', 'Te', 'I', 'Xe',
-    'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy',
-    'Ho', 'Er', 'Tm', 'Yb', 'Lu',
-    'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi',
-    'Po', 'At', 'Rn',
-    'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk',
-    'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr',
-    'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc',
-    'Lv', 'Ts', 'Og']
+    "H",
+    "He",
+    "Li",
+    "Be",
+    "B",
+    "C",
+    "N",
+    "O",
+    "F",
+    "Ne",
+    "Na",
+    "Mg",
+    "Al",
+    "Si",
+    "P",
+    "S",
+    "Cl",
+    "Ar",
+    "K",
+    "Ca",
+    "Sc",
+    "Ti",
+    "V",
+    "Cr",
+    "Mn",
+    "Fe",
+    "Co",
+    "Ni",
+    "Cu",
+    "Zn",
+    "Ga",
+    "Ge",
+    "As",
+    "Se",
+    "Br",
+    "Kr",
+    "Rb",
+    "Sr",
+    "Y",
+    "Zr",
+    "Nb",
+    "Mo",
+    "Tc",
+    "Ru",
+    "Rh",
+    "Pd",
+    "Ag",
+    "Cd",
+    "In",
+    "Sn",
+    "Sb",
+    "Te",
+    "I",
+    "Xe",
+    "Cs",
+    "Ba",
+    "La",
+    "Ce",
+    "Pr",
+    "Nd",
+    "Pm",
+    "Sm",
+    "Eu",
+    "Gd",
+    "Tb",
+    "Dy",
+    "Ho",
+    "Er",
+    "Tm",
+    "Yb",
+    "Lu",
+    "Hf",
+    "Ta",
+    "W",
+    "Re",
+    "Os",
+    "Ir",
+    "Pt",
+    "Au",
+    "Hg",
+    "Tl",
+    "Pb",
+    "Bi",
+    "Po",
+    "At",
+    "Rn",
+    "Fr",
+    "Ra",
+    "Ac",
+    "Th",
+    "Pa",
+    "U",
+    "Np",
+    "Pu",
+    "Am",
+    "Cm",
+    "Bk",
+    "Cf",
+    "Es",
+    "Fm",
+    "Md",
+    "No",
+    "Lr",
+    "Rf",
+    "Db",
+    "Sg",
+    "Bh",
+    "Hs",
+    "Mt",
+    "Ds",
+    "Rg",
+    "Cn",
+    "Nh",
+    "Fl",
+    "Mc",
+    "Lv",
+    "Ts",
+    "Og",
+]
 
-default_mus_ns_uni_to_rawlsLS_np_rank_filename = pkg_resources.resource_filename('pyace.data',
-                                                                                 'mus_ns_uni_to_rawlsLS_np_rank.pckl')
+default_mus_ns_uni_to_rawlsLS_np_rank_filename = pkg_resources.resource_filename(
+    "pyace.data", "mus_ns_uni_to_rawlsLS_np_rank.pckl"
+)
+
 
 def clean_bbasisconfig(initial_bbasisconfig):
     for block in initial_bbasisconfig.funcspecs_blocks:
@@ -69,7 +188,6 @@ def reset_bbasisconfig(bconf):
             block.set_radial_coeffs(radcoefficients.flatten())
 
 
-
 def unify_to_minimized_indices(seq, shift=0):
     """
     Unify to minimized ordered sequence of indices
@@ -82,7 +200,14 @@ def unify_by_ordering(mus_comb, ns_comb):
     """
     Unify mus_comb and ns_comb to minimized-indices sequence, combine pairwise and  sort
     """
-    return tuple(sorted(zip(unify_to_minimized_indices(mus_comb), unify_to_minimized_indices(ns_comb))))
+    return tuple(
+        sorted(
+            zip(
+                unify_to_minimized_indices(mus_comb),
+                unify_to_minimized_indices(ns_comb),
+            )
+        )
+    )
 
 
 def unify_absolute_by_ordering(mus_comb, ns_comb):
@@ -109,7 +234,9 @@ def unify_absolute_mus_ns_comb(mus_comb, ns_comb):
     return unif_comb
 
 
-def create_species_block_without_funcs(elements_vec: List[str], block_spec: Dict) -> BBasisFunctionsSpecificationBlock:
+def create_species_block_without_funcs(
+    elements_vec: List[str], block_spec: Dict
+) -> BBasisFunctionsSpecificationBlock:
     """
     Create a BBasisFunctionsSpecificationBlock
     :param elements_vec: block's elements, i.e. (ele1, ele2, ...)
@@ -174,7 +301,9 @@ def create_species_block_without_funcs(elements_vec: List[str], block_spec: Dict
     # if crad_initializer == "delta":
     crad = np.zeros((block.nradmaxi, block.lmaxi + 1, block.nradbaseij))
 
-    for n in range(0, min(block.nradmaxi, block.nradbaseij)):  # +1 is excluded, because ns=1...
+    for n in range(
+        0, min(block.nradmaxi, block.nradbaseij)
+    ):  # +1 is excluded, because ns=1...
         crad[n, :, n] = 1.0
     # elif crad_initializer == "random":
     #     crad = np.random.randn(block.nradmaxi, block.lmaxi + 1, block.nradbaseij)
@@ -246,12 +375,13 @@ def species_key_to_bonds(key):
     return bonds
 
 
-def create_multispecies_basis_config(potential_config: Dict,
-                                     unif_mus_ns_to_lsLScomb_dict: Dict = None,
-                                     func_coefs_initializer="zero",
-                                     initial_basisconfig: BBasisConfiguration = None,
-                                     overwrite_blocks_from_initial_bbasis=False
-                                     ) -> BBasisConfiguration:
+def create_multispecies_basis_config(
+    potential_config: Dict,
+    unif_mus_ns_to_lsLScomb_dict: Dict = None,
+    func_coefs_initializer="zero",
+    initial_basisconfig: BBasisConfiguration = None,
+    overwrite_blocks_from_initial_bbasis=False,
+) -> BBasisConfiguration:
     """
     Creates a BBasisConfiguration using potential_config dict
 
@@ -314,8 +444,9 @@ def create_multispecies_basis_config(potential_config: Dict,
     :return: BBasisConfiguration
     """
 
-    overwrite_blocks_from_initial_bbasis = potential_config.get('overwrite_blocks_from_initial_bbasis',
-                                                                overwrite_blocks_from_initial_bbasis)
+    overwrite_blocks_from_initial_bbasis = potential_config.get(
+        "overwrite_blocks_from_initial_bbasis", overwrite_blocks_from_initial_bbasis
+    )
     element_ndensity_dict = None
     if initial_basisconfig is not None:
         # extract embeddings from initial_basisconfig
@@ -341,26 +472,35 @@ def create_multispecies_basis_config(potential_config: Dict,
                 embeddings[elm] = emb_spec
         potential_config["embeddings"] = embeddings
 
-    blocks_list = create_multispecies_basisblocks_list(potential_config,
-                                                       element_ndensity_dict=element_ndensity_dict,
-                                                       func_coefs_initializer=func_coefs_initializer,
-                                                       unif_mus_ns_to_lsLScomb_dict=unif_mus_ns_to_lsLScomb_dict,
-                                                       )
+    blocks_list = create_multispecies_basisblocks_list(
+        potential_config,
+        element_ndensity_dict=element_ndensity_dict,
+        func_coefs_initializer=func_coefs_initializer,
+        unif_mus_ns_to_lsLScomb_dict=unif_mus_ns_to_lsLScomb_dict,
+    )
     # compare with initial_basisconfig, if some blocks are missing in generated config - add them:
     if initial_basisconfig is not None:
         new_block_dict = {bl.block_name: bl for bl in blocks_list}
-        if overwrite_blocks_from_initial_bbasis: # overwrite new blocks with old-ones
+        if overwrite_blocks_from_initial_bbasis:  # overwrite new blocks with old-ones
             for initial_block in initial_basisconfig.funcspecs_blocks:
                 new_block_dict[initial_block.block_name] = initial_block
-                log.info("Block {} is overwritten from initial potential".format(initial_block.block_name))
+                log.info(
+                    "Block {} is overwritten from initial potential".format(
+                        initial_block.block_name
+                    )
+                )
                 if initial_block.block_name not in new_block_dict:
                     blocks_list.append(initial_block)
             blocks_list = [bl for bl in new_block_dict.values()]
-        else: # only add missing blocks
+        else:  # only add missing blocks
             for initial_block in initial_basisconfig.funcspecs_blocks:
                 if initial_block.block_name not in new_block_dict:
                     blocks_list.append(initial_block)
-                    log.info("New block {} is added from initial potential".format(initial_block.block_name))
+                    log.info(
+                        "New block {} is added from initial potential".format(
+                            initial_block.block_name
+                        )
+                    )
 
     new_basis_conf = BBasisConfiguration()
     new_basis_conf.deltaSplineBins = potential_config.get("deltaSplineBins", 0.001)
@@ -368,18 +508,23 @@ def create_multispecies_basis_config(potential_config: Dict,
     validate_bonds_nradmax_lmax_nradbase(new_basis_conf)
     new_basis_conf.validate(raise_exception=True)
 
-    if ("functions" in potential_config and
-            "number_of_functions_per_element" in potential_config['functions']):
+    if (
+        "functions" in potential_config
+        and "number_of_functions_per_element" in potential_config["functions"]
+    ):
         num_block = len(new_basis_conf.funcspecs_blocks)
-        number_of_functions_per_element = potential_config["functions"]["number_of_functions_per_element"]
+        number_of_functions_per_element = potential_config["functions"][
+            "number_of_functions_per_element"
+        ]
         target_bbasis = ACEBBasisSet(new_basis_conf)
         nelements = target_bbasis.nelements
         ladder_step = number_of_functions_per_element * nelements // num_block
 
         initial_basisconfig = new_basis_conf.copy()
         clean_bbasisconfig(initial_basisconfig)
-        current_bbasisconfig = extend_multispecies_basis(initial_basisconfig, new_basis_conf,
-                                                         "power_order", ladder_step)
+        current_bbasisconfig = extend_multispecies_basis(
+            initial_basisconfig, new_basis_conf, "power_order", ladder_step
+        )
         new_basis_conf = current_bbasisconfig
 
     return new_basis_conf
@@ -389,66 +534,66 @@ def get_element_ndensity_dict(block_spec_dict):
     element_ndensity_dict = {}
     for el, spec_val in block_spec_dict.items():
         if len(el) == 1:
-            element_ndensity_dict[el[0]] = spec_val['ndensity']
+            element_ndensity_dict[el[0]] = spec_val["ndensity"]
     return element_ndensity_dict
 
 
 def generate_blocks_specifications_dict(potential_config: Dict) -> Dict:
     """
-   Creates a blocks_specifications_dict using potential_config dict
+    Creates a blocks_specifications_dict using potential_config dict
 
-   Possible keywords: ALL, UNARY, BINARY, TERNARY, QUATERNARY, QUINARY
+    Possible keywords: ALL, UNARY, BINARY, TERNARY, QUATERNARY, QUINARY
 
-   Example:
+    Example:
 
-   potential_config = {
-       'deltaSplineBins': 0.001,
-       'elements': ['Al', 'H'],
+    potential_config = {
+        'deltaSplineBins': 0.001,
+        'elements': ['Al', 'H'],
 
-       'embeddings': {'ALL': {'drho_core_cut': 250,
-                              'fs_parameters': [1, 1],
-                              'ndensity': 1,
-                              'npot': 'FinnisSinclair',
-                              'rho_core_cut': 200000},
-                      'Al': {'drho_core_cut': 250,
-                             'fs_parameters': [1, 1, 1, 0.5],
-                             'ndensity': 2,
-                             'npot': 'FinnisSinclairShiftedScaled',
-                             'rho_core_cut': 200000}
+        'embeddings': {'ALL': {'drho_core_cut': 250,
+                               'fs_parameters': [1, 1],
+                               'ndensity': 1,
+                               'npot': 'FinnisSinclair',
+                               'rho_core_cut': 200000},
+                       'Al': {'drho_core_cut': 250,
+                              'fs_parameters': [1, 1, 1, 0.5],
+                              'ndensity': 2,
+                              'npot': 'FinnisSinclairShiftedScaled',
+                              'rho_core_cut': 200000}
 
-                      },
+                       },
 
-       'bonds': {'ALL': {'NameOfCutoffFunction': 'cos',
-                         'core-repulsion': [10000.0, 5.0],
-                         'dcut': 0.01,
-                         'radbase': 'ChebPow',
-                         'radparameters': [2.0],
-                         'rcut': 3.9},
+        'bonds': {'ALL': {'NameOfCutoffFunction': 'cos',
+                          'core-repulsion': [10000.0, 5.0],
+                          'dcut': 0.01,
+                          'radbase': 'ChebPow',
+                          'radparameters': [2.0],
+                          'rcut': 3.9},
 
-                 ('Al', 'H'): {'NameOfCutoffFunction': 'cos',
-                               'core-repulsion': [10000.0, 5.0],
-                               'dcut': 0.01,
-                               'radbase': 'ChebExpCos',
-                               'radparameters': [2.0],
-                               'rcut': 3.5},
-                 },
+                  ('Al', 'H'): {'NameOfCutoffFunction': 'cos',
+                                'core-repulsion': [10000.0, 5.0],
+                                'dcut': 0.01,
+                                'radbase': 'ChebExpCos',
+                                'radparameters': [2.0],
+                                'rcut': 3.5},
+                  },
 
-       'functions': {
-           'UNARY': {
-               'nradmax_by_orders': [5, 2, 2],
-               'lmax_by_orders': [0, 1, 1]
-           },
+        'functions': {
+            'UNARY': {
+                'nradmax_by_orders': [5, 2, 2],
+                'lmax_by_orders': [0, 1, 1]
+            },
 
-           'BINARY': {
-               'nradmax_by_orders': [5, 1, 1],
-               'lmax_by_orders': [0, 1, 1],
-           },
-       }
-   }
+            'BINARY': {
+                'nradmax_by_orders': [5, 1, 1],
+                'lmax_by_orders': [0, 1, 1],
+            },
+        }
+    }
 
-   :param potential_config: potential configuration dictionary, see above
-   :return: blocks_specifications_dict
-   """
+    :param potential_config: potential configuration dictionary, see above
+    :return: blocks_specifications_dict
+    """
 
     ### Embeddings
     ### possible keywords: ALL, UNARY  + el
@@ -588,7 +733,6 @@ def update_bonds_ext(bonds_ext, functions_ext):
         lmax = max(funcs_spec[ORDERS_LMAX_KW])
 
         for bkey in species_key_to_bonds(key):
-
             bond = bonds_ext[bkey]
 
             if POTENTIAL_NRADBASE_KW not in bond:
@@ -596,39 +740,47 @@ def update_bonds_ext(bonds_ext, functions_ext):
                     bonds_ext_updated[bkey][POTENTIAL_NRADBASE_KW] = nradbasemax
             else:
                 if bond[POTENTIAL_NRADBASE_KW] < nradbasemax:
-                    raise ValueError(f"Given `{POTENTIAL_NRADBASE_KW}`={bond[POTENTIAL_NRADBASE_KW]} for bond {bkey} " + \
-                                     f"is less than nradbasemax={nradbasemax} from {key}")
+                    raise ValueError(
+                        f"Given `{POTENTIAL_NRADBASE_KW}`={bond[POTENTIAL_NRADBASE_KW]} for bond {bkey} "
+                        + f"is less than nradbasemax={nradbasemax} from {key}"
+                    )
 
             if POTENTIAL_NRADMAX_KW not in bond:
                 if bonds_ext_updated[bkey].get(POTENTIAL_NRADMAX_KW, 0) < nradmax:
                     bonds_ext_updated[bkey][POTENTIAL_NRADMAX_KW] = nradmax
             else:
                 if bond[POTENTIAL_NRADMAX_KW] < nradmax:
-                    raise ValueError(f"Given `{POTENTIAL_NRADMAX_KW}`={bond[POTENTIAL_NRADMAX_KW]} for bond {bkey} " + \
-                                     f"is less than nradmax={nradmax} from {key}")
+                    raise ValueError(
+                        f"Given `{POTENTIAL_NRADMAX_KW}`={bond[POTENTIAL_NRADMAX_KW]} for bond {bkey} "
+                        + f"is less than nradmax={nradmax} from {key}"
+                    )
 
             if POTENTIAL_LMAX_KW not in bond:
                 if bonds_ext_updated[bkey].get(POTENTIAL_LMAX_KW, 0) < lmax:
                     bonds_ext_updated[bkey][POTENTIAL_LMAX_KW] = lmax
             else:
                 if bond[POTENTIAL_LMAX_KW] < lmax:
-                    raise ValueError(f"Given `{POTENTIAL_LMAX_KW}`={bond[POTENTIAL_LMAX_KW]} for bond {bkey} " + \
-                                     f"is less than nradmax={lmax} from {key}")
+                    raise ValueError(
+                        f"Given `{POTENTIAL_LMAX_KW}`={bond[POTENTIAL_LMAX_KW]} for bond {bkey} "
+                        + f"is less than nradmax={lmax} from {key}"
+                    )
     return bonds_ext_updated
 
 
-def create_multispecies_basisblocks_list(potential_config: Dict,
-                                         element_ndensity_dict: Dict = None,
-                                         func_coefs_initializer="zero",
-                                         unif_mus_ns_to_lsLScomb_dict=None,
-                                         verbose=False) -> List[BBasisFunctionsSpecificationBlock]:
+def create_multispecies_basisblocks_list(
+    potential_config: Dict,
+    element_ndensity_dict: Dict = None,
+    func_coefs_initializer="zero",
+    unif_mus_ns_to_lsLScomb_dict=None,
+    verbose=False,
+) -> List[BBasisFunctionsSpecificationBlock]:
     blocks_specifications_dict = generate_blocks_specifications_dict(potential_config)
 
     if unif_mus_ns_to_lsLScomb_dict is None:
         with open(default_mus_ns_uni_to_rawlsLS_np_rank_filename, "rb") as f:
             unif_mus_ns_to_lsLScomb_dict = pickle.load(f)
 
-    element_ndensity_dict =  element_ndensity_dict or {}
+    element_ndensity_dict = element_ndensity_dict or {}
     constr_element_ndensity_dict = get_element_ndensity_dict(blocks_specifications_dict)
     for k, v in constr_element_ndensity_dict.items():
         if k not in element_ndensity_dict:
@@ -642,18 +794,26 @@ def create_multispecies_basisblocks_list(potential_config: Dict,
             print("Block elements:", elements_vec)
 
         ndensity = element_ndensity_dict[elements_vec[0]]
-        spec_block = create_species_block(elements_vec, block_spec_dict, ndensity,
-                                          func_coefs_initializer, unif_mus_ns_to_lsLScomb_dict)
+        spec_block = create_species_block(
+            elements_vec,
+            block_spec_dict,
+            ndensity,
+            func_coefs_initializer,
+            unif_mus_ns_to_lsLScomb_dict,
+        )
         if verbose:
             print(len(spec_block.funcspecs), " functions added")
         blocks_list.append(spec_block)
     return blocks_list
 
 
-def create_species_block(elements_vec: List, block_spec_dict: Dict,
-                         ndensity: int,
-                         func_coefs_initializer="zero",
-                         unif_mus_ns_to_lsLScomb_dict=None) -> BBasisFunctionsSpecificationBlock:
+def create_species_block(
+    elements_vec: List,
+    block_spec_dict: Dict,
+    ndensity: int,
+    func_coefs_initializer="zero",
+    unif_mus_ns_to_lsLScomb_dict=None,
+) -> BBasisFunctionsSpecificationBlock:
     central_atom = elements_vec[0]
 
     elms = tuple(sorted(set(elements_vec)))
@@ -663,14 +823,17 @@ def create_species_block(elements_vec: List, block_spec_dict: Dict,
     if "nradmax_by_orders" in block_spec_dict and "lmax_by_orders" in block_spec_dict:
         max_rank = len(block_spec_dict["nradmax_by_orders"])
         unif_abs_combs_set = set()
-        for rank, nmax, lmax in zip(range(1, max_rank + 1),
-                                    block_spec_dict["nradmax_by_orders"],
-                                    block_spec_dict["lmax_by_orders"]):
-
+        for rank, nmax, lmax in zip(
+            range(1, max_rank + 1),
+            block_spec_dict["nradmax_by_orders"],
+            block_spec_dict["lmax_by_orders"],
+        ):
             ns_range = range(1, nmax + 1)
 
             for mus_comb in combinations_with_replacement(elms, rank):
-                mus_comb_ext = tuple([central_atom] + list(mus_comb))  # central atom + ordered tail
+                mus_comb_ext = tuple(
+                    [central_atom] + list(mus_comb)
+                )  # central atom + ordered tail
                 current_nary = len(set(mus_comb_ext))
                 if current_nary != nary:
                     continue
@@ -683,12 +846,15 @@ def create_species_block(elements_vec: List, block_spec_dict: Dict,
                     unif_comb = unify_mus_ns_comb(mus_comb, ns_comb)
                     if unif_comb not in unif_mus_ns_to_lsLScomb_dict:
                         raise ValueError(
-                            "Specified potential shape is too big " + \
-                            "and goes beyond the precomputed BBasisFunc white-list" + \
-                            "for unified combination {}".format(unif_comb))
+                            "Specified potential shape is too big "
+                            + "and goes beyond the precomputed BBasisFunc white-list"
+                            + "for unified combination {}".format(unif_comb)
+                        )
 
-                    mus_ns_white_list = unif_mus_ns_to_lsLScomb_dict[unif_comb]  # only ls, LS are important
-                    for (pre_ls, pre_LS) in mus_ns_white_list:
+                    mus_ns_white_list = unif_mus_ns_to_lsLScomb_dict[
+                        unif_comb
+                    ]  # only ls, LS are important
+                    for pre_ls, pre_LS in mus_ns_white_list:
                         if max(pre_ls) <= lmax:
                             if "coefs_init" in block_spec_dict:
                                 func_coefs_initializer = block_spec_dict["coefs_init"]
@@ -700,14 +866,17 @@ def create_species_block(elements_vec: List, block_spec_dict: Dict,
                             else:
                                 raise ValueError(
                                     "Unknown func_coefs_initializer={}. Could be only 'zero' or 'random'".format(
-                                        func_coefs_initializer))
+                                        func_coefs_initializer
+                                    )
+                                )
 
-                            new_spec = BBasisFunctionSpecification(elements=mus_comb_ext,
-                                                                   ns=ns_comb,
-                                                                   ls=pre_ls,
-                                                                   LS=pre_LS,
-                                                                   coeffs=coefs
-                                                                   )
+                            new_spec = BBasisFunctionSpecification(
+                                elements=mus_comb_ext,
+                                ns=ns_comb,
+                                ls=pre_ls,
+                                LS=pre_LS,
+                                coeffs=coefs,
+                            )
 
                             current_block_func_spec_list.append(new_spec)
         spec_block.funcspecs = current_block_func_spec_list
@@ -718,12 +887,20 @@ def single_to_multispecies_converter(potential_config):
     new_multi_species_potential_config = {}
 
     if "deltaSplineBins" in potential_config:
-        new_multi_species_potential_config["deltaSplineBins"] = potential_config["deltaSplineBins"]
+        new_multi_species_potential_config["deltaSplineBins"] = potential_config[
+            "deltaSplineBins"
+        ]
     element = potential_config["element"]
     new_multi_species_potential_config["elements"] = [element]
 
     embeddings = {}
-    embeddings_kw_list = ["npot", "fs_parameters", "ndensity", "rho_core_cut", "drho_core_cut"]
+    embeddings_kw_list = [
+        "npot",
+        "fs_parameters",
+        "ndensity",
+        "rho_core_cut",
+        "drho_core_cut",
+    ]
 
     for kw in embeddings_kw_list:
         if kw in potential_config:
@@ -732,12 +909,14 @@ def single_to_multispecies_converter(potential_config):
     new_multi_species_potential_config["embeddings"] = {element: embeddings}
 
     bonds = {}
-    bonds_kw_list = ["NameOfCutoffFunction",
-                     "core-repulsion",
-                     "dcut",
-                     "rcut",
-                     "radbase",
-                     "radparameters"]
+    bonds_kw_list = [
+        "NameOfCutoffFunction",
+        "core-repulsion",
+        "dcut",
+        "rcut",
+        "radbase",
+        "radparameters",
+    ]
     for kw in bonds_kw_list:
         if kw in potential_config:
             bonds[kw] = potential_config[kw]
@@ -745,7 +924,10 @@ def single_to_multispecies_converter(potential_config):
     new_multi_species_potential_config["bonds"] = {element: bonds}
 
     functions = {}
-    functions_kw_list = ["nradmax_by_orders", "lmax_by_orders", ]
+    functions_kw_list = [
+        "nradmax_by_orders",
+        "lmax_by_orders",
+    ]
     for kw in functions_kw_list:
         if kw in potential_config:
             functions[kw] = potential_config[kw]
@@ -769,7 +951,9 @@ def species_tail_sorted_permutation(elements, r):
     return tuple(sorted(combs))
 
 
-def expand_trainable_parameters(elements: list, trainable_parameters: Union[str, list, dict] = None) -> dict:
+def expand_trainable_parameters(
+    elements: list, trainable_parameters: Union[str, list, dict] = None
+) -> dict:
     if trainable_parameters is None:
         trainable_parameters = []
 
@@ -846,8 +1030,10 @@ def expand_trainable_parameters(elements: list, trainable_parameters: Union[str,
             inv_comb = tuple(reversed(comb))
             if ("radial" in comb) != ("radial" in inv_comb):
                 raise ValueError(
-                    "Inconsisteny setup of 'radial' parameters trainability for {} and {}:".format(comb, inv_comb) +
-                    "This option should be identical"
+                    "Inconsisteny setup of 'radial' parameters trainability for {} and {}:".format(
+                        comb, inv_comb
+                    )
+                    + "This option should be identical"
                 )
 
         new_trainable_parameters_dict_cleared[comb] = params
@@ -855,8 +1041,10 @@ def expand_trainable_parameters(elements: list, trainable_parameters: Union[str,
     return new_trainable_parameters_dict_cleared
 
 
-def compute_bbasisset_train_mask(bbasisconf: Union[BBasisConfiguration, ACEBBasisSet],
-                                 extended_trainable_parameters_dict: dict):
+def compute_bbasisset_train_mask(
+    bbasisconf: Union[BBasisConfiguration, ACEBBasisSet],
+    extended_trainable_parameters_dict: dict,
+):
     if isinstance(bbasisconf, BBasisConfiguration):
         bbasis_set = ACEBBasisSet(bbasisconf)
     elif isinstance(bbasisconf, ACEBBasisSet):
@@ -864,8 +1052,10 @@ def compute_bbasisset_train_mask(bbasisconf: Union[BBasisConfiguration, ACEBBasi
 
     elements_to_ind_map = bbasis_set.elements_to_index_map
 
-    ind_trainable_parameters_dict = {tuple(elements_to_ind_map[el] for el in k): v for k, v in
-                                     extended_trainable_parameters_dict.items()}
+    ind_trainable_parameters_dict = {
+        tuple(elements_to_ind_map[el] for el in k): v
+        for k, v in extended_trainable_parameters_dict.items()
+    }
     crad_train_mask = np.zeros(len(bbasis_set.crad_coeffs_mask), dtype=bool)
     basis_train_mask = np.zeros(len(bbasis_set.basis_coeffs_mask), dtype=bool)
 
@@ -874,23 +1064,30 @@ def compute_bbasisset_train_mask(bbasisconf: Union[BBasisConfiguration, ACEBBasi
 
     for ind_comb, params in ind_trainable_parameters_dict.items():
         if "radial" in params:
-            crad_train_mask = np.logical_or(crad_train_mask, [c == ind_comb for c in crad_coeffs_mask])
+            crad_train_mask = np.logical_or(
+                crad_train_mask, [c == ind_comb for c in crad_coeffs_mask]
+            )
         if "func" in params:
-            basis_train_mask = np.logical_or(basis_train_mask, [c == ind_comb for c in basis_coeffs_mask])
+            basis_train_mask = np.logical_or(
+                basis_train_mask, [c == ind_comb for c in basis_coeffs_mask]
+            )
 
     total_train_mask = np.concatenate((crad_train_mask, basis_train_mask))
     return total_train_mask
 
 
-def is_mult_basisfunc_equivalent(func1: BBasisFunctionSpecification, func2: BBasisFunctionSpecification) -> bool:
-    return (func1.elements == func2.elements) and \
-           (func1.ns == func2.ns) and \
-           (func1.ls == func2.ls) and \
-           (func1.LS == func2.LS)
+def is_mult_basisfunc_equivalent(
+    func1: BBasisFunctionSpecification, func2: BBasisFunctionSpecification
+) -> bool:
+    return (
+        (func1.elements == func2.elements)
+        and (func1.ns == func2.ns)
+        and (func1.ls == func2.ls)
+        and (func1.LS == func2.LS)
+    )
 
 
 class BlockBasisFunctionsList:
-
     def __init__(self, block: BBasisFunctionsSpecificationBlock):
         self.funcs = block.funcspecs
 
@@ -901,15 +1098,18 @@ class BlockBasisFunctionsList:
         return None
 
 
-def extend_basis_block(init_block: BBasisFunctionsSpecificationBlock,
-                       final_block: BBasisFunctionsSpecificationBlock,
-                       num_funcs=None,
-                       ladder_type="body_order") -> Tuple[BBasisFunctionsSpecificationBlock, bool]:
+def extend_basis_block(
+    init_block: BBasisFunctionsSpecificationBlock,
+    final_block: BBasisFunctionsSpecificationBlock,
+    num_funcs=None,
+    ladder_type="body_order",
+) -> Tuple[BBasisFunctionsSpecificationBlock, bool]:
     # check that block name is identical
-    assert init_block.block_name == final_block.block_name, ValueError("Could not extend block '' to new block ''". \
-                                                                       format(init_block.block_name,
-                                                                              final_block.block_name
-                                                                              ))
+    assert init_block.block_name == final_block.block_name, ValueError(
+        "Could not extend block '' to new block ''".format(
+            init_block.block_name, final_block.block_name
+        )
+    )
 
     nelements = init_block.number_of_species
 
@@ -937,7 +1137,9 @@ def extend_basis_block(init_block: BBasisFunctionsSpecificationBlock,
     if len(new_funcs_list) == 0:
         return extended_block, False
 
-    extended_func_list = sort_funcspecs_list(existing_funcs_list + new_funcs_list, "body_order")
+    extended_func_list = sort_funcspecs_list(
+        existing_funcs_list + new_funcs_list, "body_order"
+    )
 
     # Update crad only for nelements<=2
     if nelements <= 2:
@@ -967,10 +1169,14 @@ def extend_basis_block(init_block: BBasisFunctionsSpecificationBlock,
 def merge_crad_matrix(extended_radcoeffs, init_radcoeffs):
     init_radcoeffs = np.array(init_radcoeffs)
     if len(init_radcoeffs.shape) == 3:
-        common_shape = [min(s1, s2) for s1, s2 in zip(np.shape(init_radcoeffs), np.shape(extended_radcoeffs))]
+        common_shape = [
+            min(s1, s2)
+            for s1, s2 in zip(np.shape(init_radcoeffs), np.shape(extended_radcoeffs))
+        ]
         if len(common_shape) == 3:
-            extended_radcoeffs[:common_shape[0], :common_shape[1], :common_shape[2]] = \
-                init_radcoeffs[:common_shape[0], :common_shape[1], :common_shape[2]]
+            extended_radcoeffs[
+                : common_shape[0], : common_shape[1], : common_shape[2]
+            ] = init_radcoeffs[: common_shape[0], : common_shape[1], : common_shape[2]]
 
 
 def initialize_block_crad(extended_block, crad_init="delta"):
@@ -987,13 +1193,17 @@ def initialize_block_crad(extended_block, crad_init="delta"):
     if crad_init == "delta":
         extended_radcoeffs = np.zeros((new_nradmax, new_lmax + 1, new_nradbase))
         for n in range(min(new_nradmax, new_nradbase)):
-            extended_radcoeffs[n, :, n] = 1.
+            extended_radcoeffs[n, :, n] = 1.0
     elif crad_init == "zero":
         extended_radcoeffs = np.zeros((new_nradmax, new_lmax + 1, new_nradbase))
     elif crad_init == "random":
         extended_radcoeffs = np.random.randn(*(new_nradmax, new_lmax + 1, new_nradbase))
     else:
-        raise ValueError("Unknown value for crad_init ({}). Use delta, zero or random".format(crad_init))
+        raise ValueError(
+            "Unknown value for crad_init ({}). Use delta, zero or random".format(
+                crad_init
+            )
+        )
 
     merge_crad_matrix(extended_radcoeffs, init_radcoeffs)
 
@@ -1042,9 +1252,13 @@ def validate_bonds_nradmax_lmax_nradbase(ext_basis: BBasisConfiguration):
                 bond = (mu0, mu)
 
                 if rank == 1:
-                    max_nlk_dict[bond]["nradbase"] = max(max_nlk_dict[bond]["nradbase"], n)
+                    max_nlk_dict[bond]["nradbase"] = max(
+                        max_nlk_dict[bond]["nradbase"], n
+                    )
                 else:
-                    max_nlk_dict[bond]["nradmax"] = max(max_nlk_dict[bond]["nradmax"], n)
+                    max_nlk_dict[bond]["nradmax"] = max(
+                        max_nlk_dict[bond]["nradmax"], n
+                    )
 
                 max_nlk_dict[bond]["lmax"] = max(max_nlk_dict[bond]["lmax"], l)
 
@@ -1057,9 +1271,15 @@ def validate_bonds_nradmax_lmax_nradbase(ext_basis: BBasisConfiguration):
             max_lmax = max(dct["lmax"], sym_dct["lmax"])
             max_nradmax = max(dct["nradmax"], sym_dct["nradmax"])
 
-            max_nlk_dict[bond_pair]["nradbase"] = max_nlk_dict[sym_bond_pair]["nradbase"] = max_nradbase
-            max_nlk_dict[bond_pair]["lmax"] = max_nlk_dict[sym_bond_pair]["lmax"] = max_lmax
-            max_nlk_dict[bond_pair]["nradmax"] = max_nlk_dict[sym_bond_pair]["nradmax"] = max_nradmax
+            max_nlk_dict[bond_pair]["nradbase"] = max_nlk_dict[sym_bond_pair][
+                "nradbase"
+            ] = max_nradbase
+            max_nlk_dict[bond_pair]["lmax"] = max_nlk_dict[sym_bond_pair][
+                "lmax"
+            ] = max_lmax
+            max_nlk_dict[bond_pair]["nradmax"] = max_nlk_dict[sym_bond_pair][
+                "nradmax"
+            ] = max_nradmax
 
     bonds_dict = {}
     for k, v in max_nlk_dict.items():
@@ -1091,12 +1311,13 @@ def validate_bonds_nradmax_lmax_nradbase(ext_basis: BBasisConfiguration):
         initialize_block_crad(block)
 
 
-def extend_multispecies_basis(initial_basis: BBasisConfiguration,
-                              final_basis: BBasisConfiguration,
-                              ladder_type="body_order",
-                              num_funcs=None,
-                              return_is_extended=False
-                              ) -> Tuple[BBasisConfiguration, bool]:
+def extend_multispecies_basis(
+    initial_basis: BBasisConfiguration,
+    final_basis: BBasisConfiguration,
+    ladder_type="body_order",
+    num_funcs=None,
+    return_is_extended=False,
+) -> Tuple[BBasisConfiguration, bool]:
     if num_funcs == 0:
         if return_is_extended:
             return initial_basis, False
@@ -1104,8 +1325,12 @@ def extend_multispecies_basis(initial_basis: BBasisConfiguration,
             return initial_basis
 
     # create a dict of block_name -> block for initial and final configs
-    initial_blocks_dict = {block.block_name: block for block in initial_basis.funcspecs_blocks}
-    final_blocks_dict = {block.block_name: block for block in final_basis.funcspecs_blocks}
+    initial_blocks_dict = {
+        block.block_name: block for block in initial_basis.funcspecs_blocks
+    }
+    final_blocks_dict = {
+        block.block_name: block for block in final_basis.funcspecs_blocks
+    }
 
     # initialize accumulator lists
     is_extended_list = []
@@ -1129,7 +1354,9 @@ def extend_multispecies_basis(initial_basis: BBasisConfiguration,
             i_block.nradmaxi = 0
 
         # growth from i_block to f_block
-        ext_block, is_extended = extend_basis_block(i_block, f_block, num_funcs, ladder_type)
+        ext_block, is_extended = extend_basis_block(
+            i_block, f_block, num_funcs, ladder_type
+        )
         #         print(ext_block.block_name,":",is_extended)
         is_extended_list.append(is_extended)
         extended_block_list.append(ext_block)

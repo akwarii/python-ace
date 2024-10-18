@@ -36,7 +36,7 @@ E_CORRECTED_C = "energy_corrected"
 NAME_C = "name"
 
 # transformation coefficients to eV
-K = _e ** 2 / (4 * np.pi * _eps0) / 1e-10 / _e
+K = _e**2 / (4 * np.pi * _eps0) / 1e-10 / _e
 
 # coefficients of ZBL potential
 phi_coefs = np.array([0.18175, 0.50986, 0.28022, 0.02817])
@@ -70,15 +70,15 @@ def fun_E_ij(nl_dist, a):
 
 # common factor: K*Zi*Zj*
 def fun_dE_ij(nl_dist, a):
-    return (-1 / nl_dist ** 2) * phi(nl_dist / a) + 1 / nl_dist * dphi(nl_dist / a) / a
+    return (-1 / nl_dist**2) * phi(nl_dist / a) + 1 / nl_dist * dphi(nl_dist / a) / a
 
 
 # common factor: K*Zi*Zj*
 def fun_d2E_ij(nl_dist, a):
     return (
-            (+2 / nl_dist ** 3) * phi(nl_dist / a)
-            + 2 * (-1 / nl_dist ** 2) * dphi(nl_dist / a) / a
-            + (1 / nl_dist) * d2phi(nl_dist / a) / (a ** 2)
+        (+2 / nl_dist**3) * phi(nl_dist / a)
+        + 2 * (-1 / nl_dist**2) * dphi(nl_dist / a) / a
+        + (1 / nl_dist) * d2phi(nl_dist / a) / (a**2)
     )
 
 
@@ -102,10 +102,10 @@ class ZBLCalculator(Calculator):
         self.forces = None
 
     def calculate(
-            self,
-            atoms=None,
-            properties=["energy", "forces", "free_energy"],
-            system_changes=all_changes,
+        self,
+        atoms=None,
+        properties=["energy", "forces", "free_energy"],
+        system_changes=all_changes,
     ):
         Calculator.calculate(self, atoms, properties, system_changes)
 
@@ -115,7 +115,7 @@ class ZBLCalculator(Calculator):
         Zi = atomic_numbers[nl_i]
         Zj = atomic_numbers[nl_j]
 
-        a = 0.46850 / (Zi ** 0.23 + Zj ** 0.23)
+        a = 0.46850 / (Zi**0.23 + Zj**0.23)
 
         E_ij = fun_E_ij(d, a)
 
@@ -125,9 +125,9 @@ class ZBLCalculator(Calculator):
 
         drcut = self.cutoff - self.cut_in
 
-        A = (-3 * dEc + drcut * d2Ec) / drcut ** 2
-        B = (2 * dEc - drcut * d2Ec) / drcut ** 3
-        C = -Ec + 1 / 2 * drcut * dEc - 1 / 12 * drcut ** 2 * d2Ec
+        A = (-3 * dEc + drcut * d2Ec) / drcut**2
+        B = (2 * dEc - drcut * d2Ec) / drcut**3
+        C = -Ec + 1 / 2 * drcut * dEc - 1 / 12 * drcut**2 * d2Ec
 
         S = A / 3 * (d - self.cut_in) ** 3 + B / 4 * (d - self.cut_in) ** 4 + C  # S(r)
 
@@ -168,7 +168,7 @@ class ZBLCalculator(Calculator):
 def E_ER_pars(V, pars):
     E0, V0, c3, lr = pars
     xrs = (V ** (1 / 3) - V0 ** (1 / 3)) / lr
-    return E0 * (1 + xrs + c3 * xrs ** 3) * np.exp(-xrs)
+    return E0 * (1 + xrs + c3 * xrs**3) * np.exp(-xrs)
 
 
 def E_ER(V, *pars):
@@ -181,7 +181,9 @@ def get_min_nn_dist(atoms, cutoff=7):
     return min_nn_dist
 
 
-def make_cell_for_non_periodic_structure(structure, wrapped=True, scale=None, alat=None, min_cell_len=10):
+def make_cell_for_non_periodic_structure(
+    structure, wrapped=True, scale=None, alat=None, min_cell_len=10
+):
     """
     function to generate a cell with sides s_i; s_i = diameter_i + (alat*scale) adapted
     from Minaam Quamar
@@ -229,9 +231,11 @@ def make_cell_for_non_periodic_structure(structure, wrapped=True, scale=None, al
         Z = 1
 
     # generate orthogonal cell
-    cell = [[max(X + (scale * alat), min_cell_len), 0, 0],
-            [0, max(Y + (scale * alat), min_cell_len), 0],
-            [0, 0, max(Z + (scale * alat), min_cell_len)]]
+    cell = [
+        [max(X + (scale * alat), min_cell_len), 0, 0],
+        [0, max(Y + (scale * alat), min_cell_len), 0],
+        [0, 0, max(Z + (scale * alat), min_cell_len)],
+    ]
 
     return cell
 
@@ -239,10 +243,9 @@ def make_cell_for_non_periodic_structure(structure, wrapped=True, scale=None, al
 def make_periodic_structure(structure, wrapped=True, scale=5.0, alat=2):
     structure = structure.copy()
     if not all(structure.get_pbc()):
-        orthogonal_cell = make_cell_for_non_periodic_structure(structure,
-                                                               wrapped=wrapped,
-                                                               scale=scale,
-                                                               alat=alat)
+        orthogonal_cell = make_cell_for_non_periodic_structure(
+            structure, wrapped=wrapped, scale=scale, alat=alat
+        )
         structure.set_cell(orthogonal_cell)
         structure.set_pbc(True)
     return structure
@@ -360,24 +363,24 @@ def plot_all(df, df_reliable=None, df_selected=None, plot_eos=True, plot_zbl=Fal
 
 
 def augment_structure_eos(
-        atoms,
-        calc,
-        nn_distance_range=(1, 5),
-        nn_distance_step=0.1,
-        reliability_criteria=KINK,  # "extrapolation" or "kink"
-        augmentation_type=EOS,  # "eos" or "zbl"
-        epa_reliable_max=None,
-        epa_aug_max=None,
-        epa_aug_min=None,
-        gamma_max=10,
-        eos_fit_n_iter=20,
-        eos_fit_rmse_threshold=0.5,
-        eos_fit_random_state=None,
-        plot_verbose=False,
-        plot_eos=False,
-        plot_zbl=False,
-        zbl_r_in=0,
-        zbl_r_out=4,
+    atoms,
+    calc,
+    nn_distance_range=(1, 5),
+    nn_distance_step=0.1,
+    reliability_criteria=KINK,  # "extrapolation" or "kink"
+    augmentation_type=EOS,  # "eos" or "zbl"
+    epa_reliable_max=None,
+    epa_aug_max=None,
+    epa_aug_min=None,
+    gamma_max=10,
+    eos_fit_n_iter=20,
+    eos_fit_rmse_threshold=0.5,
+    eos_fit_random_state=None,
+    plot_verbose=False,
+    plot_eos=False,
+    plot_zbl=False,
+    zbl_r_in=0,
+    zbl_r_out=4,
 ):
     """
     atoms: ASE atoms
@@ -410,10 +413,20 @@ def augment_structure_eos(
     #     plot_eos=compute_eos
     natoms = len(atoms)
     compute_gamma = reliability_criteria == EXTRAPOLATION
-    df = compute_enn_df(atoms, calc, compute_zbl, nn_distance_range, nn_distance_step, compute_gamma,
-                        zbl_r_in, zbl_r_out)
+    df = compute_enn_df(
+        atoms,
+        calc,
+        compute_zbl,
+        nn_distance_range,
+        nn_distance_step,
+        compute_gamma,
+        zbl_r_in,
+        zbl_r_out,
+    )
 
-    df_reliable = select_reliable_enn_part(df, reliability_criteria, epa_reliable_max, gamma_max)
+    df_reliable = select_reliable_enn_part(
+        df, reliability_criteria, epa_reliable_max, gamma_max
+    )
 
     epa_reliable_max = df_reliable[EPA_C].max()
     vpa_reliable_min = df_reliable[VPA_C].min()
@@ -450,7 +463,6 @@ def augment_structure_eos(
 
     df_selected = df.copy()
     if augmentation_type == ZBL:
-
         df_selected[EPA_CORRECTED_C] = df_selected[EPA_ZBL_C]
         df_selected[FORCES_C] = df_selected[FORCES_ZBL_C]
         df_selected = df_selected[df_selected[EPA_ZBL_C] >= epa_reliable_max].copy()
@@ -465,20 +477,16 @@ def augment_structure_eos(
 
     # 2. Epa_aug max criteria
     if epa_aug_max is not None:
-        df_selected = df_selected[
-            df_selected[EPA_CORRECTED_C] <= epa_aug_max
-            ]
+        df_selected = df_selected[df_selected[EPA_CORRECTED_C] <= epa_aug_max]
 
     # 3. Epa_aug min criteria
     if epa_aug_min is not None:
-        df_selected = df_selected[
-            df_selected[EPA_CORRECTED_C] >= epa_aug_min
-            ]
+        df_selected = df_selected[df_selected[EPA_CORRECTED_C] >= epa_aug_min]
 
     df_selected[E_CORRECTED_C] = df_selected[EPA_CORRECTED_C] * natoms
 
     df_selected[NAME_C] = (
-            "augmented/" + augmentation_type + "/" + atoms.get_chemical_formula()
+        "augmented/" + augmentation_type + "/" + atoms.get_chemical_formula()
     )
 
     if plot_verbose:
@@ -491,7 +499,7 @@ def augment_structure_eos(
         )
 
     # remove calc
-    df_selected[ASE_ATOMS_C].map(lambda a: a.set_calculator(None));
+    df_selected[ASE_ATOMS_C].map(lambda a: a.set_calculator(None))
     return df_selected[
         [
             NAME_C,
@@ -504,10 +512,16 @@ def augment_structure_eos(
     ]
 
 
-def compute_enn_df(atoms, calc, compute_zbl=False, nn_distance_range=(1, 5),
-                   nn_distance_step=0.1, compute_gamma=False,
-                   zbl_r_in=0,
-                   zbl_r_out=4, ):
+def compute_enn_df(
+    atoms,
+    calc,
+    compute_zbl=False,
+    nn_distance_range=(1, 5),
+    nn_distance_step=0.1,
+    compute_gamma=False,
+    zbl_r_in=0,
+    zbl_r_out=4,
+):
     if compute_zbl:
         zblcalc = ZBLCalculator(cut_in=zbl_r_in, cutoff=zbl_r_out)
 
@@ -555,7 +569,9 @@ def compute_enn_df(atoms, calc, compute_zbl=False, nn_distance_range=(1, 5),
     return df
 
 
-def select_reliable_enn_part(df, reliability_criteria=KINK, epa_reliable_max=None, gamma_max=1.5):
+def select_reliable_enn_part(
+    df, reliability_criteria=KINK, epa_reliable_max=None, gamma_max=1.5
+):
     # Selection of reliable part (required for all augmentation types)
     if reliability_criteria == KINK:
         peaks, _ = find_peaks(df[EPA_C])

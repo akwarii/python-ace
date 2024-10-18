@@ -16,7 +16,7 @@ def integrate(xs, table):
     if table is not None:
         frs = np.abs(table)
         sum_frs = np.sum(frs, axis=(1, 2))
-        integrand = sum_frs * xs ** 2
+        integrand = sum_frs * xs**2
         integral = np.trapz(integrand, x=xs)
         return integral
     else:
@@ -35,13 +35,19 @@ class RadialFunctionsValues:
             npoints = int(np.floor(self.cutoff / self.radial_functions.deltaSplineBins))
         self.npoints = npoints
         # Create the list of R_nl & g_k functions and first derivatives
-        self.xs = np.linspace(self.cutoff / self.npoints + 1e-10, self.cutoff, num=self.npoints)
+        self.xs = np.linspace(
+            self.cutoff / self.npoints + 1e-10, self.cutoff, num=self.npoints
+        )
 
         self.nelements = self.radial_functions.nelements
 
         # setup grs and its derivatives
-        grs_shape = (self.nelements, self.nelements, self.npoints,
-                     self.radial_functions.nradbase)
+        grs_shape = (
+            self.nelements,
+            self.nelements,
+            self.npoints,
+            self.radial_functions.nradbase,
+        )
         self.grs = np.zeros(grs_shape)  # (nelements, nelements, npoints, nradbase)
         self.dgrs = np.zeros(grs_shape)
         self.ddgrs = np.zeros(grs_shape)
@@ -50,8 +56,13 @@ class RadialFunctionsValues:
         self.frs = None
         self.dfrs = None
         self.ddfrs = None
-        frs_shape = (self.nelements, self.nelements, self.npoints,
-                     self.radial_functions.nradial, self.radial_functions.lmax + 1)
+        frs_shape = (
+            self.nelements,
+            self.nelements,
+            self.npoints,
+            self.radial_functions.nradial,
+            self.radial_functions.lmax + 1,
+        )
         if self.radial_functions.nradial > 0:
             self.frs = np.zeros(frs_shape)
             self.dfrs = np.zeros(frs_shape)
@@ -59,10 +70,13 @@ class RadialFunctionsValues:
 
         for mu_i in range(self.nelements):
             for mu_j in range(mu_i, self.nelements):
-                self.radial_functions.evaluate_range(self.xs,
-                                                     self.radial_functions.nradbase,
-                                                     self.radial_functions.nradial,
-                                                     mu_i, mu_j)
+                self.radial_functions.evaluate_range(
+                    self.xs,
+                    self.radial_functions.nradbase,
+                    self.radial_functions.nradial,
+                    mu_i,
+                    mu_j,
+                )
                 # g_k and derivatives
                 self.grs[mu_i, mu_j] = self.radial_functions.gr_vec
                 self.dgrs[mu_i, mu_j] = self.radial_functions.dgr_vec
@@ -111,7 +125,11 @@ class RadialFunctionSmoothness:
                             prefactor = 1
                         else:
                             prefactor = 2
-                        w_reg += prefactor * integrate(self.xs, arr[mu_i, mu_j]) / self.cutoff ** 2
+                        w_reg += (
+                            prefactor
+                            * integrate(self.xs, arr[mu_i, mu_j])
+                            / self.cutoff**2
+                        )
                         n_terms += prefactor
                 w_reg /= n_terms
 
@@ -125,15 +143,18 @@ class RadialFunctionSmoothness:
 
 
 class RadialFunctionsVisualization:
-
-    def __init__(self, radialFunctionsValues: Union[
-        RadialFunctionsValues, ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration],
-                 k=None,
-                 nl=None,
-                 xmin=-0.5,
-                 xmax=None,
-                 ymin=None,
-                 ymax=None):
+    def __init__(
+        self,
+        radialFunctionsValues: Union[
+            RadialFunctionsValues, ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration
+        ],
+        k=None,
+        nl=None,
+        xmin=-0.5,
+        xmax=None,
+        ymin=None,
+        ymax=None,
+    ):
         if isinstance(radialFunctionsValues, BBasisConfiguration):
             bbasis = ACEBBasisSet(radialFunctionsValues)
             radialFunctionsValues = RadialFunctionsValues(bbasis)
@@ -141,18 +162,24 @@ class RadialFunctionsVisualization:
             radialFunctionsValues = RadialFunctionsValues(radialFunctionsValues)
 
         if not isinstance(radialFunctionsValues, RadialFunctionsValues):
-            raise ValueError("radialFunctionsValues must be one of these type:" +
-                             "(RadialFunctionsValues, ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration)" +
-                             "but {} is provided".format(type(radialFunctionsValues)))
+            raise ValueError(
+                "radialFunctionsValues must be one of these type:"
+                + "(RadialFunctionsValues, ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration)"
+                + "but {} is provided".format(type(radialFunctionsValues))
+            )
 
         self.radialFunctions = radialFunctionsValues
         self.xs = self.radialFunctions.xs
         # TODO: implement it for multispecies
-        self.grs = self.radialFunctions.grs  # shape = (nelements, nelements, npoints, nradbase)
+        self.grs = (
+            self.radialFunctions.grs
+        )  # shape = (nelements, nelements, npoints, nradbase)
         self.dgrs = self.radialFunctions.dgrs
         self.ddgrs = self.radialFunctions.ddgrs
 
-        self.frs = self.radialFunctions.frs  # shape = (nelements, nelements, npoints, nradial, lmax+1)
+        self.frs = (
+            self.radialFunctions.frs
+        )  # shape = (nelements, nelements, npoints, nradial, lmax+1)
         self.dfrs = self.radialFunctions.dfrs
         self.ddfrs = self.radialFunctions.ddfrs
         self.Rc = self.radialFunctions.cutoff
@@ -161,12 +188,7 @@ class RadialFunctionsVisualization:
 
         self.init_params(k=k, nl=nl, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
 
-    def init_params(self, k=None,
-                    nl=None,
-                    xmin=-0.5,
-                    xmax=None,
-                    ymin=None,
-                    ymax=None):
+    def init_params(self, k=None, nl=None, xmin=-0.5, xmax=None, ymin=None, ymax=None):
         self.nl = nl
         self.k = k
         self.xmax = xmax
@@ -195,24 +217,18 @@ class RadialFunctionsVisualization:
         if not self.xmax:
             self.xmax = self.Rc + 0.5
 
-    def plot(self,
-             k=None,
-             nl=None,
-             xmin=-0.5,
-             xmax=None,
-             ymin=None,
-             ymax=None):
-
+    def plot(self, k=None, nl=None, xmin=-0.5, xmax=None, ymin=None, ymax=None):
         self.init_params(k=k, nl=nl, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
 
         # Graph options
         import matplotlib.pyplot as plt
+
         # 6 Plots : R_nl  R'_nl  R''_nl / g_k  g'_k  g''_k
-        fig = plt.figure(figsize=(16, 20), facecolor='w')
+        fig = plt.figure(figsize=(16, 20), facecolor="w")
         # Plot 1 : xs / grs
         ax1 = fig.add_subplot(321)
         for i, gr in enumerate(self.t1):
-            ax1.plot(self.xs, gr, label='k={}'.format(self.klabel[i]))
+            ax1.plot(self.xs, gr, label="k={}".format(self.klabel[i]))
             ax1.legend(ncol=2)
         # Plot 2 : xs / fr
         ax2 = fig.add_subplot(323)
@@ -226,8 +242,11 @@ class RadialFunctionsVisualization:
         ax4 = fig.add_subplot(322)
         for ii, i in enumerate(self.t4[0]):
             for jj, j in enumerate(self.t4[1]):
-                ax4.plot(self.xs, np.transpose(self.frs, axes=(1, 2, 0))[i][j],
-                         label='n={} l={}'.format(self.t4[0][ii], self.t4[1][jj]))
+                ax4.plot(
+                    self.xs,
+                    np.transpose(self.frs, axes=(1, 2, 0))[i][j],
+                    label="n={} l={}".format(self.t4[0][ii], self.t4[1][jj]),
+                )
                 if self.nl:
                     ax4.legend()
         # Plot 5 : xs / ddgrs
@@ -242,11 +261,18 @@ class RadialFunctionsVisualization:
                 ax6.plot(self.xs, np.transpose(self.ddfrs, axes=(1, 2, 0))[i][j])
 
         # General options for the graphs
-        Titres = ['$g_k$', '$g\'_k$', '$g\'\'_k$', '$R_{{nl}}$', '$R\'_{{nl}}$', '$R\'\'_{{nl}}$']
+        Titres = [
+            "$g_k$",
+            "$g'_k$",
+            "$g''_k$",
+            "$R_{{nl}}$",
+            "$R'_{{nl}}$",
+            "$R''_{{nl}}$",
+        ]
         for i, ax in enumerate([ax1, ax2, ax3, ax4, ax5, ax6]):
             ax.set_xlim(self.xmin, self.xmax)
-            ax.axhline(y=0, color='black')
-            ax.axvline(x=0, color='black')
+            ax.axhline(y=0, color="black")
+            ax.axvline(x=0, color="black")
             # ax.text(self.Rc,0,'$R_c$',fontsize=18)
             ax.set_title(Titres[i], fontsize=22)
             if self.ymin:

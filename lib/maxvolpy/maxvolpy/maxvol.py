@@ -9,13 +9,29 @@ this properties are 1-volume and 2-volume with the following formulas:
 
 from __future__ import absolute_import, division, print_function
 
-__all__ = ['rect_maxvol', 'maxvol', 'rect_maxvol_svd', 'maxvol_svd',
-    'rect_maxvol_qr', 'maxvol_qr']
+__all__ = [
+    "rect_maxvol",
+    "maxvol",
+    "rect_maxvol_svd",
+    "maxvol_svd",
+    "rect_maxvol_qr",
+    "maxvol_qr",
+]
 
 from .misc import svd_cut
 
-def py_rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
-        start_maxvol_iters=10, identity_submatrix=True, top_k_index=-1, verbose=False):
+
+def py_rect_maxvol(
+    A,
+    tol=1.0,
+    maxK=None,
+    min_add_K=None,
+    minK=None,
+    start_maxvol_iters=10,
+    identity_submatrix=True,
+    top_k_index=-1,
+    verbose=False,
+):
     """
     Python implementation of rectangular 2-volume maximization.
 
@@ -39,10 +55,10 @@ def py_rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
     if minK > N:
         minK = N
     if min_add_K is not None:
-        minK = max(minK, r + min_add_K) 
+        minK = max(minK, r + min_add_K)
     if minK > maxK:
         minK = maxK
-        #raise ValueError('minK value cannot be greater than maxK value')
+        # raise ValueError('minK value cannot be greater than maxK value')
     if top_k_index == -1 or top_k_index > N:
         top_k_index = N
     if top_k_index < r:
@@ -56,17 +72,18 @@ def py_rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
     chosen[tmp_index] = 0
     C = np.asfortranarray(C)
     # compute square 2-norms of each row in coefficients matrix C
-    row_norm_sqr = np.array([chosen[i]*np.linalg.norm(C[i], 2)**2 for
-        i in range(top_k_index)])
+    row_norm_sqr = np.array(
+        [chosen[i] * np.linalg.norm(C[i], 2) ** 2 for i in range(top_k_index)]
+    )
     # find maximum value in row_norm_sqr
     i = np.argmax(row_norm_sqr)
     K = r
     # set cgeru or zgeru for complex numbers and dger or sger
     # for float numbers
     try:
-        ger = get_blas_funcs('geru', [C])
+        ger = get_blas_funcs("geru", [C])
     except:
-        ger = get_blas_funcs('ger', [C])
+        ger = get_blas_funcs("ger", [C])
     # augment maxvol submatrix with each iteration
     while (row_norm_sqr[i] > tol2 and K < maxK) or K < minK:
         # add i to index and recompute C and square norms of each row
@@ -75,10 +92,10 @@ def py_rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
         chosen[i] = 0
         c = C[i].copy()
         v = C.dot(c.conj())
-        l = 1.0/(1+v[i])
-        ger(-l,v,c,a=C,overwrite_a=1)
-        C = np.hstack([C, l*v.reshape(-1,1)])
-        row_norm_sqr -= (l*v[:top_k_index]*v[:top_k_index].conj()).real
+        l = 1.0 / (1 + v[i])
+        ger(-l, v, c, a=C, overwrite_a=1)
+        C = np.hstack([C, l * v.reshape(-1, 1)])
+        row_norm_sqr -= (l * v[:top_k_index] * v[:top_k_index].conj()).real
         row_norm_sqr *= chosen
         # find maximum value in row_norm_sqr
         i = row_norm_sqr.argmax()
@@ -88,6 +105,7 @@ def py_rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
     if identity_submatrix:
         C[index[:K]] = np.eye(K, dtype=C.dtype)
     return index[:K].copy(), C
+
 
 def py_maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
     """
@@ -109,9 +127,9 @@ def py_maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
         top_k_index = r
     # set auxiliary matrices and get corresponding *GETRF function
     # from lapack
-    B = np.copy(A[:top_k_index], order='F')
-    C = np.copy(A.T, order='F')
-    H, ipiv, info = get_lapack_funcs('getrf', [B])(B, overwrite_a=1)
+    B = np.copy(A[:top_k_index], order="F")
+    C = np.copy(A.T, order="F")
+    H, ipiv, info = get_lapack_funcs("getrf", [B])(B, overwrite_a=1)
     # compute pivots from ipiv (result of *GETRF)
     index = np.arange(N, dtype=np.int32)
     for i in range(r):
@@ -121,35 +139,44 @@ def py_maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
     # solve A = CH, H is in LU format
     B = H[:r]
     # It will be much faster to use *TRSM instead of *TRTRS
-    trtrs = get_lapack_funcs('trtrs', [B])
+    trtrs = get_lapack_funcs("trtrs", [B])
     trtrs(B, C, trans=1, lower=0, unitdiag=0, overwrite_b=1)
     trtrs(B, C, trans=1, lower=1, unitdiag=1, overwrite_b=1)
     # C has shape (r, N) -- it is stored transposed
     # find max value in C
-    i, j = divmod(abs(C[:,:top_k_index]).argmax(), top_k_index)
+    i, j = divmod(abs(C[:, :top_k_index]).argmax(), top_k_index)
     # set cgeru or zgeru for complex numbers and dger or sger for
     # float numbers
     try:
-        ger = get_blas_funcs('geru', [C])
+        ger = get_blas_funcs("geru", [C])
     except:
-        ger = get_blas_funcs('ger', [C])
+        ger = get_blas_funcs("ger", [C])
     # set number of iters to 0
     iters = 0
     # check if need to swap rows
-    while abs(C[i,j]) > tol and iters < max_iters:
+    while abs(C[i, j]) > tol and iters < max_iters:
         # add j to index and recompute C by SVM-formula
         index[i] = j
         tmp_row = C[i].copy()
-        tmp_column = C[:,j].copy()
-        tmp_column[i] -= 1.
-        alpha = -1./C[i,j]
+        tmp_column = C[:, j].copy()
+        tmp_column[i] -= 1.0
+        alpha = -1.0 / C[i, j]
         ger(alpha, tmp_column, tmp_row, a=C, overwrite_a=1)
         iters += 1
-        i, j = divmod(abs(C[:,:top_k_index]).argmax(), top_k_index)
+        i, j = divmod(abs(C[:, :top_k_index]).argmax(), top_k_index)
     return index[:r].copy(), C.T
 
-def rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
-        start_maxvol_iters=10, identity_submatrix=True, top_k_index=-1):
+
+def rect_maxvol(
+    A,
+    tol=1.0,
+    maxK=None,
+    min_add_K=None,
+    minK=None,
+    start_maxvol_iters=10,
+    identity_submatrix=True,
+    top_k_index=-1,
+):
     """
     Finds good rectangular submatrix.
 
@@ -223,8 +250,17 @@ def rect_maxvol(A, tol=1., maxK=None, min_add_K=None, minK=None,
     ... format(max([np.linalg.norm(C[i], 2) for i in range(1000)])))
     maximum euclidian norm of row in matrix C: 1.91954
     """
-    return rect_maxvol_func(A, tol, maxK, min_add_K, minK, start_maxvol_iters,
-            identity_submatrix, top_k_index)
+    return rect_maxvol_func(
+        A,
+        tol,
+        maxK,
+        min_add_K,
+        minK,
+        start_maxvol_iters,
+        identity_submatrix,
+        top_k_index,
+    )
+
 
 def maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
     """
@@ -250,7 +286,7 @@ def maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
         Pivot rows for good submatrix will be in range from `0` to
         `(top_k_index-1)`. This restriction is ignored, if `top_k_index`
         is -1. Defaults to `-1`.
-    
+
     Returns
     -------
     piv : numpy.ndarray(ndim=1, dtype=numpy.int32)
@@ -282,12 +318,24 @@ def maxvol(A, tol=1.05, max_iters=100, top_k_index=-1, verbose=False):
     >>> print('Chebyshev norm of matrix C: {:.5f}'.format(abs(C).max()))
     Chebyshev norm of matrix C: 1.07854
     """
-    return maxvol_func(A, tol=tol, max_iters=max_iters,
-            top_k_index=top_k_index, verbose=verbose)
+    return maxvol_func(
+        A, tol=tol, max_iters=max_iters, top_k_index=top_k_index, verbose=verbose
+    )
 
-def rect_maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1., maxK=None,
-        min_add_K=None, minK=None, start_maxvol_iters=10,
-        identity_submatrix=True, job='F', top_k_index=-1):
+
+def rect_maxvol_svd(
+    A,
+    svd_tol=1e-3,
+    svd_alpha=0.0,
+    tol=1.0,
+    maxK=None,
+    min_add_K=None,
+    minK=None,
+    start_maxvol_iters=10,
+    identity_submatrix=True,
+    job="F",
+    top_k_index=-1,
+):
     """
     Applies SVD truncation and finds good rectangular submatrix.
 
@@ -375,7 +423,7 @@ def rect_maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1., maxK=None,
     ... format(max([np.linalg.norm(C[i], 2) for i in range(1000)])))
     maximum euclidian norm of row in matrix C: 1.88485
     """
-    if job == 'R':
+    if job == "R":
         if top_k_index == -1:
             top_k_index = A.shape[0]
         # compute largest singular values and vectors for first
@@ -383,42 +431,95 @@ def rect_maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1., maxK=None,
         U, S, V = svd_cut(A[:top_k_index], svd_tol, svd_alpha)
         # find projection coefficients of all other rows to subspace
         # of largest singular vectors of first rows
-        B = A[top_k_index:].dot(V.T.conj())*(1.0/S).reshape(1,-1)
+        B = A[top_k_index:].dot(V.T.conj()) * (1.0 / S).reshape(1, -1)
         # apply rect_maxvol for projection coefficients
-        return rect_maxvol(np.vstack([U, B]), tol, maxK, min_add_K, minK,
-                start_maxvol_iters, identity_submatrix, top_k_index)
-    elif job == 'C':
+        return rect_maxvol(
+            np.vstack([U, B]),
+            tol,
+            maxK,
+            min_add_K,
+            minK,
+            start_maxvol_iters,
+            identity_submatrix,
+            top_k_index,
+        )
+    elif job == "C":
         if top_k_index == -1:
             top_k_index = A.shape[1]
         # compute largest singular values and vectors for first
         # top_k_index columns
-        U, S, V = svd_cut(A[:,:top_k_index], svd_tol, svd_alpha)
+        U, S, V = svd_cut(A[:, :top_k_index], svd_tol, svd_alpha)
         # find projection coefficients of all other columns to subspace
         # of largest singular vectors of first columns
-        B = (1.0/S).reshape(-1,1)*U.T.conj().dot(A[:,top_k_index:])
+        B = (1.0 / S).reshape(-1, 1) * U.T.conj().dot(A[:, top_k_index:])
         # apply rect_maxvol for projection coefficients
-        return rect_maxvol(np.vstack([V.T.conj(), B.T.conj()]), tol, maxK,
-                min_add_K, minK, start_maxvol_iters, identity_submatrix,
-                top_k_index)
-    elif job == 'F':
+        return rect_maxvol(
+            np.vstack([V.T.conj(), B.T.conj()]),
+            tol,
+            maxK,
+            min_add_K,
+            minK,
+            start_maxvol_iters,
+            identity_submatrix,
+            top_k_index,
+        )
+    elif job == "F":
         # proceed with job = 'R' and job = 'C' simultaneously
         if top_k_index != -1:
-            value0, value1 = rect_maxvol_svd(A, svd_tol, svd_alpha, tol, maxK,
-                    min_add_K, minK, start_maxvol_iters, identity_submatrix,
-                    'R', top_k_index)
-            value2, value3 = rect_maxvol_svd(A, svd_tol, svd_alpha, tol, maxK,
-                    min_add_K, minK, start_maxvol_iters, identity_submatrix,
-                    'C', top_k_index)
+            value0, value1 = rect_maxvol_svd(
+                A,
+                svd_tol,
+                svd_alpha,
+                tol,
+                maxK,
+                min_add_K,
+                minK,
+                start_maxvol_iters,
+                identity_submatrix,
+                "R",
+                top_k_index,
+            )
+            value2, value3 = rect_maxvol_svd(
+                A,
+                svd_tol,
+                svd_alpha,
+                tol,
+                maxK,
+                min_add_K,
+                minK,
+                start_maxvol_iters,
+                identity_submatrix,
+                "C",
+                top_k_index,
+            )
             return value0, value1, value2, value3
         U, S, V = svd_cut(A, svd_tol, svd_alpha)
-        value0, value1 = rect_maxvol(U, tol, maxK, min_add_K, minK,
-                start_maxvol_iters, identity_submatrix, top_k_index)
-        value2, value3 = rect_maxvol(V.T.conj(), tol, maxK, min_add_K, minK,
-                start_maxvol_iters, identity_submatrix, top_k_index)
+        value0, value1 = rect_maxvol(
+            U,
+            tol,
+            maxK,
+            min_add_K,
+            minK,
+            start_maxvol_iters,
+            identity_submatrix,
+            top_k_index,
+        )
+        value2, value3 = rect_maxvol(
+            V.T.conj(),
+            tol,
+            maxK,
+            min_add_K,
+            minK,
+            start_maxvol_iters,
+            identity_submatrix,
+            top_k_index,
+        )
         return value0, value1, value2, value3
 
-def maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1.05, max_iters=100, job='F',
-        top_k_index=-1):
+
+def maxvol_svd(
+    A, svd_tol=1e-3, svd_alpha=0.0, tol=1.05, max_iters=100, job="F", top_k_index=-1
+):
     """
     Applies SVD truncation and finds good square submatrix.
 
@@ -490,7 +591,7 @@ def maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1.05, max_iters=100, job='F',
     """
     if tol < 1:
         tol = 1.0
-    if job == 'R':
+    if job == "R":
         if top_k_index == -1:
             top_k_index = A.shape[0]
         # compute largest singular values and vectors for first
@@ -498,36 +599,46 @@ def maxvol_svd(A, svd_tol=1e-3, svd_alpha=0., tol=1.05, max_iters=100, job='F',
         U, S, V = svd_cut(A[:top_k_index], svd_tol, svd_alpha)
         # find projection coefficients of all other rows to subspace of
         # largest singular vectors of first rows
-        B = A[top_k_index:].dot(V.T.conj())*(1.0/S).reshape(1,-1)
+        B = A[top_k_index:].dot(V.T.conj()) * (1.0 / S).reshape(1, -1)
         # apply maxvol for projection coefficients
         return maxvol(np.vstack([U, B]), tol, max_iters, top_k_index)
-    elif job == 'C':
+    elif job == "C":
         if top_k_index == -1:
             top_k_index = A.shape[1]
         # compute largest singular values and vectors for first
         # top_k_index columns
-        U, S, V = svd_cut(A[:,:top_k_index], svd_tol, svd_alpha)
+        U, S, V = svd_cut(A[:, :top_k_index], svd_tol, svd_alpha)
         # find projection coefficients of all other columns to subspace
         # of largest singular vectors of first columns
-        B = (1.0/S).reshape(-1,1)*U.T.conj().dot(A[:,top_k_index:])
+        B = (1.0 / S).reshape(-1, 1) * U.T.conj().dot(A[:, top_k_index:])
         # apply rect_maxvol for projection coefficients
-        return maxvol(np.vstack([V.T.conj(), B.T.conj()]), tol, max_iters,
-                top_k_index)
-    elif job == 'F':
+        return maxvol(np.vstack([V.T.conj(), B.T.conj()]), tol, max_iters, top_k_index)
+    elif job == "F":
         # procede with job = 'R' and job = 'C' simultaneously
         if top_k_index != -1:
-            value0, value1 = maxvol_svd(A, svd_tol, svd_alpha, tol, max_iters,
-                    'R', top_k_index)
-            value2, value3 = maxvol_svd(A, svd_tol, svd_alpha, tol, max_iters,
-                    'C', top_k_index)
+            value0, value1 = maxvol_svd(
+                A, svd_tol, svd_alpha, tol, max_iters, "R", top_k_index
+            )
+            value2, value3 = maxvol_svd(
+                A, svd_tol, svd_alpha, tol, max_iters, "C", top_k_index
+            )
             return value0, value1, value2, value3
         U, S, V = svd_cut(A, svd_tol, svd_alpha)
         value0, value1 = maxvol(U, tol, max_iters, top_k_index)
         value2, value3 = maxvol(V.T.conj(), tol, max_iters, top_k_index)
         return value0, value1, value2, value3
 
-def rect_maxvol_qr(A, tol=1., maxK=None, min_add_K=None, minK=None,
-        start_maxvol_iters=10, identity_submatrix=True, top_k_index=-1):
+
+def rect_maxvol_qr(
+    A,
+    tol=1.0,
+    maxK=None,
+    min_add_K=None,
+    minK=None,
+    start_maxvol_iters=10,
+    identity_submatrix=True,
+    top_k_index=-1,
+):
     """
     Finds good rectangular submatrix in Q factor of QR of `A`.
 
@@ -601,8 +712,17 @@ def rect_maxvol_qr(A, tol=1., maxK=None, min_add_K=None, minK=None,
     if N <= r:
         return np.arange(N, dtype=np.int32), np.eye(N, dtype=A.dtype)
     Q = np.linalg.qr(A)[0]
-    return rect_maxvol(Q, tol, maxK, min_add_K, minK, start_maxvol_iters,
-            identity_submatrix, top_k_index)
+    return rect_maxvol(
+        Q,
+        tol,
+        maxK,
+        min_add_K,
+        minK,
+        start_maxvol_iters,
+        identity_submatrix,
+        top_k_index,
+    )
+
 
 def maxvol_qr(A, tol=1.05, max_iters=100, top_k_index=-1):
     """
@@ -625,7 +745,7 @@ def maxvol_qr(A, tol=1.05, max_iters=100, top_k_index=-1):
         Pivot rows for good submatrix will be in range from `0` to
         `(top_k_index-1)`. This restriction is ignored, if `top_k_index`
         is -1.
-    
+
     Returns
     -------
     piv : numpy.ndarray(ndim=1, dtype=numpy.int32)
@@ -663,16 +783,21 @@ def maxvol_qr(A, tol=1.05, max_iters=100, top_k_index=-1):
     Q = np.linalg.qr(A)[0]
     return maxvol(Q, tol, max_iters, top_k_index)
 
+
 import numpy as np
 
 try:
     from ._maxvol import c_rect_maxvol, c_maxvol
+
     rect_maxvol_func = c_rect_maxvol
     maxvol_func = c_maxvol
-    __all__.extend(['c_rect_maxvol', 'c_maxvol'])
+    __all__.extend(["c_rect_maxvol", "c_maxvol"])
 except:
     from scipy.linalg import solve_triangular, get_lapack_funcs, get_blas_funcs
-    print("warning: fast C maxvol functions are not compiled, continue with"
-            " python maxvol functions")
+
+    print(
+        "warning: fast C maxvol functions are not compiled, continue with"
+        " python maxvol functions"
+    )
     rect_maxvol_func = py_rect_maxvol
     maxvol_func = py_maxvol

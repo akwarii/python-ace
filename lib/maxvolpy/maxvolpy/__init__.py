@@ -10,7 +10,7 @@ submatrix mean is noted in documentation for `maxvol` submodule.
 
 from __future__ import absolute_import
 
-__all__ = ['maxvol']
+__all__ = ["maxvol"]
 
 from . import maxvol
 from .__version__ import __version__

@@ -5,8 +5,13 @@ from scipy.optimize import minimize
 
 from pyace.preparedata import calc_min_distance, aseatoms_to_atomicenvironment
 from pyace.basis import BBasisConfiguration, ACEBBasisSet
-from pyace.activelearning import load_active_inverse_set, compute_active_set, compute_A_active_inverse, \
-    compute_B_projections, save_active_inverse_set
+from pyace.activelearning import (
+    load_active_inverse_set,
+    compute_active_set,
+    compute_A_active_inverse,
+    compute_B_projections,
+    save_active_inverse_set,
+)
 
 
 class EarlyStoppingExtrapolation(Exception):
@@ -38,7 +43,6 @@ def move_atom(delta_pos, atom_ind, original_structure):
 
 
 class ActiveExploration:
-
     def __init__(self, bconf, orig_asi_fname: str):
         self.gamma_tol = 1
         self.gamma_lo = 2
@@ -68,7 +72,11 @@ class ActiveExploration:
         if isinstance(bconf, str):
             bconf = BBasisConfiguration(bconf)
         elif not isinstance(bconf, BBasisConfiguration):
-            raise ValueError("bconf should be filename.yaml or BBasisConfiguration, but not {}".format(type(bconf)))
+            raise ValueError(
+                "bconf should be filename.yaml or BBasisConfiguration, but not {}".format(
+                    type(bconf)
+                )
+            )
         self.bconf = bconf
         self.bbasis = ACEBBasisSet(bconf)
         self.elements_name = self.bbasis.elements_name
@@ -76,8 +84,15 @@ class ActiveExploration:
 
     def obj(self, dpos, atom_ind, orig_structure):
         symbols = self.orig_atoms_.get_chemical_symbols()
-        print(" [obj] {}(#{}) dpos=({:>7.3f}, {:>7.3f}, {:>7.3f})".format(symbols[atom_ind], atom_ind, *dpos), end=" ")
-        new_atoms = move_atom(dpos, atom_ind=atom_ind, original_structure=orig_structure)
+        print(
+            " [obj] {}(#{}) dpos=({:>7.3f}, {:>7.3f}, {:>7.3f})".format(
+                symbols[atom_ind], atom_ind, *dpos
+            ),
+            end=" ",
+        )
+        new_atoms = move_atom(
+            dpos, atom_ind=atom_ind, original_structure=orig_structure
+        )
 
         # element mapper doesn't matter, only for NN distance
         ae = aseatoms_to_atomicenvironment(new_atoms, cutoff=self.min_cutoff)
@@ -96,21 +111,26 @@ class ActiveExploration:
         self.current_dpos_ = dpos
         self.current_gamma_ = max_gamma
         res = (max_gamma - self.gamma_hi) ** 2
-        if res < self.gamma_tol ** 2:
-            raise EarlyStoppingExtrapolation("Minimization goal achieved, max_gamma={:.3f}".format(max_gamma))
+        if res < self.gamma_tol**2:
+            raise EarlyStoppingExtrapolation(
+                "Minimization goal achieved, max_gamma={:.3f}".format(max_gamma)
+            )
         return res
 
-    def active_exploration(self, orig_atoms,
-                           min_dist=1.1,
-                           gamma_hi=15,
-                           n_iter=None,
-                           gamma_lo=1,
-                           gamma_tol=1,
-                           initial_moving_atom_index=None,
-                           movable_atoms_indices=None,
-                           n_atom_shake_max_attempts=20,
-                           shake_amplitude=0.1,
-                           seed=42):
+    def active_exploration(
+        self,
+        orig_atoms,
+        min_dist=1.1,
+        gamma_hi=15,
+        n_iter=None,
+        gamma_lo=1,
+        gamma_tol=1,
+        initial_moving_atom_index=None,
+        movable_atoms_indices=None,
+        n_atom_shake_max_attempts=20,
+        shake_amplitude=0.1,
+        seed=42,
+    ):
         """
         Perform Active Exploration (AE):
         Try to displace atom in `orig_atoms` by maximizing extrapolation grade gamma until
@@ -165,7 +185,9 @@ class ActiveExploration:
 
         # n_iter = min(n_iter, len(movable_atoms_indices))
         if initial_moving_atom_index is None:
-            initial_moving_atom_index = np.random.choice(movable_atoms_indices, size=1)[0]
+            initial_moving_atom_index = np.random.choice(movable_atoms_indices, size=1)[
+                0
+            ]
 
         for it in range(n_iter):
             print("=" * 80)
@@ -176,14 +198,21 @@ class ActiveExploration:
             att = 0
             x0 = [0, 0, 0]
             while True:
-                print("Attempt local exploration #{}/{}".format(att + 1, n_atom_shake_max_attempts))
+                print(
+                    "Attempt local exploration #{}/{}".format(
+                        att + 1, n_atom_shake_max_attempts
+                    )
+                )
 
                 try:
                     # self.atom_ind_ = initial_moving_atom_index
                     # self.orig_structure_ = cur_atoms
-                    res = minimize(self.obj, x0=x0, args=(initial_moving_atom_index, cur_atoms),
-                                   method="Nelder-Mead"  # , callback = self.callback
-                                   )
+                    res = minimize(
+                        self.obj,
+                        x0=x0,
+                        args=(initial_moving_atom_index, cur_atoms),
+                        method="Nelder-Mead",  # , callback = self.callback
+                    )
                     self.max_gamma = -res.fun
                     self.max_dpos = res.x
                 except EarlyStoppingExtrapolation as e:
@@ -191,11 +220,13 @@ class ActiveExploration:
                     self.max_gamma = self.current_gamma_
                     self.max_dpos = self.current_dpos_
 
-                if (self.max_gamma - self.gamma_hi) ** 2 < self.gamma_tol ** 2:
+                if (self.max_gamma - self.gamma_hi) ** 2 < self.gamma_tol**2:
                     break
                 att += 1
                 if att >= n_atom_shake_max_attempts:
-                    raise RuntimeError("Could not find extrapolative structures, too many attempts")
+                    raise RuntimeError(
+                        "Could not find extrapolative structures, too many attempts"
+                    )
                 print("Attempting to shake x0 position")
                 x0 = x0 + np.random.randn(3) * shake_amplitude
 
@@ -207,7 +238,9 @@ class ActiveExploration:
 
             write(self.extrapolative_structures_fname, self.extrapolative_structures)
 
-            new_proj = compute_B_projections(self.bconf, self.extrapolative_structures[-1:])
+            new_proj = compute_B_projections(
+                self.bconf, self.extrapolative_structures[-1:]
+            )
 
             current_ext_lin_proj = {}
             for mu, active_set_mu in lin_AS.items():
@@ -220,7 +253,9 @@ class ActiveExploration:
             new_asi = compute_A_active_inverse(new_as)
 
             print("Saving new active set into " + self.current_asi_fname)
-            save_active_inverse_set(self.current_asi_fname, new_asi, elements_name=self.elements_name)
+            save_active_inverse_set(
+                self.current_asi_fname, new_asi, elements_name=self.elements_name
+            )
 
             cur_atoms = new_atoms
             lin_AS = new_as
@@ -235,15 +270,23 @@ class ActiveExploration:
             gat.set_calculator(self.calc)
             gat.get_potential_energy()
 
-            gamma = self.calc.results['gamma']
+            gamma = self.calc.results["gamma"]
             gat.arrays["gamma"] = gamma
-            print("Save current snapshot with gamma (wrt. original ASI) to ", self.current_snapshot_fname)
-            write(self.current_snapshot_fname, gat, format='extxyz')
+            print(
+                "Save current snapshot with gamma (wrt. original ASI) to ",
+                self.current_snapshot_fname,
+            )
+            write(self.current_snapshot_fname, gat, format="extxyz")
 
             print(
                 "Gamma distribution (wrt. original ASI): min={:.3f}, median={:.3f}, mean={:.3f}, max={:.3f}, std={:.3f}".format(
-                    np.min(gamma), np.median(gamma), np.mean(gamma), np.max(gamma), np.std(gamma)
-                ))
+                    np.min(gamma),
+                    np.median(gamma),
+                    np.mean(gamma),
+                    np.max(gamma),
+                    np.std(gamma),
+                )
+            )
             gamma_pools = gamma[movable_atoms_indices]
             if self.gamma_lo is not None:
                 atoms_pools = movable_atoms_indices[gamma_pools < self.gamma_lo]
@@ -252,11 +295,18 @@ class ActiveExploration:
 
             print("Pool of movable atoms: {} atoms".format(len(atoms_pools)))
             if not len(atoms_pools):
-                print("Too high extrapolation, no atoms with gamma < {}. Stopping".format(self.gamma_lo))
+                print(
+                    "Too high extrapolation, no atoms with gamma < {}. Stopping".format(
+                        self.gamma_lo
+                    )
+                )
                 break
             initial_moving_atom_index = np.random.choice(atoms_pools, size=1)[0]
-            print("Next moving atom ind: #{}-{} ".format(initial_moving_atom_index,
-                                                         orig_symbols[initial_moving_atom_index]))
+            print(
+                "Next moving atom ind: #{}-{} ".format(
+                    initial_moving_atom_index, orig_symbols[initial_moving_atom_index]
+                )
+            )
 
             self.calc.set_active_set(self.current_asi_fname)
             self.calc.reset()
@@ -267,4 +317,4 @@ class ActiveExploration:
         atoms.set_calculator(self.calc)
         self.calc.reset()
         atoms.get_potential_energy()
-        atoms.arrays["gamma"] = self.calc.results['gamma']
+        atoms.arrays["gamma"] = self.calc.results["gamma"]

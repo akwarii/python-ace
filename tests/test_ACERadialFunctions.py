@@ -23,7 +23,7 @@ def test_ACERadialFunctions_simple():
     print(acerad.crad)
 
     acerad.radfunc(0, 0)
-    assert acerad.crad == [[[[[1.]]]]]
+    assert acerad.crad == [[[[[1.0]]]]]
     assert acerad.nelements == 1
     assert acerad.lmax == 0
     assert acerad.nradial == 1
@@ -64,7 +64,7 @@ def test_ACERadialFunctions_compute_values():
     dcut = acerad.dcut
     lambd = acerad.lamb
 
-    acerad.radbase(lambd[0][0], cut[0][0], dcut[0][0], "ChebExpCos", 3., 0, 0)
+    acerad.radbase(lambd[0][0], cut[0][0], dcut[0][0], "ChebExpCos", 3.0, 0, 0)
     print("gr=", acerad.gr)
     print("dgr=", acerad.dgr)
 
@@ -107,7 +107,7 @@ def test_ACERadialFunctions_pickle():
     acerad = pickle.loads(p)
 
     acerad.radfunc(0, 0)
-    assert acerad.crad == [[[[[1.]]]]]
+    assert acerad.crad == [[[[[1.0]]]]]
     assert acerad.nelements == 1
     assert acerad.lmax == 0
     assert acerad.nradial == 1
