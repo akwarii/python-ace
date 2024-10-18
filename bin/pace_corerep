@@ -1,24 +1,23 @@
 #!/usr/bin/env python
-import os.path
-import sys
 import argparse
+import logging
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
+
 from pyace import BBasisConfiguration, PyACECalculator
-from pyace.process_df import tqdm
-
-from pyace.atomicenvironment import aseatoms_to_atomicenvironment
 from pyace.aceselect import load_multiple_datasets
-from pyace.generalfit import setup_zbl_inner_core_repulsion, setup_inner_core_repulsion
-from pyace.data_aug import select_reliable_enn_part, compute_enn_df
+from pyace.atomicenvironment import aseatoms_to_atomicenvironment
+from pyace.data_aug import compute_enn_df, select_reliable_enn_part
+from pyace.generalfit import setup_inner_core_repulsion, setup_zbl_inner_core_repulsion
+from pyace.process_df import tqdm
 from pyace.utils.utils import (
-    get_vpa,
-    compute_nn_dist_per_bond,
     complement_min_dist_dict,
+    compute_nn_dist_per_bond,
+    get_vpa,
 )
-
-import logging
 
 LOG_FMT = "%(asctime)s %(levelname).1s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FMT, datefmt="%Y/%m/%d %H:%M:%S")
@@ -206,7 +205,7 @@ def main():
 
     if active_set_inv_fname is None:
         active_set_inv_fname = potential_file.replace(".yaml", ".asi")
-        if not os.path.isfile(active_set_inv_fname):
+        if not Path(active_set_inv_fname).is_file():
             raise ValueError(
                 f"Active set file {active_set_inv_fname} neither set nor found, "
                 + "but it is required for correct core-rep autotune"

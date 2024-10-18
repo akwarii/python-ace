@@ -5,6 +5,21 @@ from collections import defaultdict
 from pyace import ACEBBasisSet, BBasisConfiguration
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="pace_info",
+        description="Utility to analyze PACE (.yaml) potential shape and other parameters",
+    )
+    parser.add_argument(
+        "potential_file",
+        help="B-basis file name (.yaml)",
+        type=str,
+        nargs="+",
+        default=[],
+    )
+    return parser
+
+
 def analyse_potential_shape(ace_potential):
     if isinstance(ace_potential, str):
         bbasis = ACEBBasisSet(ace_potential)
@@ -137,18 +152,14 @@ def analyse_potential_shape(ace_potential):
     print("=" * 40)
 
 
-parser = argparse.ArgumentParser(
-    prog="pace_info",
-    description="Utility to analyze PACE (.yaml) potential shape and other parameters",
-)
+def main():
+    parser = build_parser()
+    args_parse = parser.parse_args()
+    potential_files = args_parse.potential_file
 
-parser.add_argument(
-    "potential_file", help="B-basis file name (.yaml)", type=str, nargs="+", default=[]
-)
+    for potential_file in potential_files:
+        analyse_potential_shape(potential_file)
 
-args_parse = parser.parse_args()
-potential_files = args_parse.potential_file
 
-for potential_file in potential_files:
-    # print("potential file: ", potential_file)
-    analyse_potential_shape(potential_file)
+if __name__ == "__main__":
+    main()
