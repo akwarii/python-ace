@@ -2,17 +2,17 @@
 import argparse
 from collections import defaultdict
 
-from pyace import ACEBBasisSet, BBasisConfiguration
+from pyace import ACEBBasisSet
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pace_info",
-        description="Utility to analyze PACE (.yaml) potential shape and other parameters",
+        description="Utility to analyze the shape and parameters of PACE (.yaml) potentials.",
     )
     parser.add_argument(
         "potential_file",
-        help="B-basis file name (.yaml)",
+        help="Path to one or more B-basis files in .yaml format.",
         type=str,
         nargs="+",
         default=[],
@@ -20,26 +20,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def analyse_potential_shape(ace_potential):
-    if isinstance(ace_potential, str):
+def analyse_potential_shape(ace_potential: str) -> None:
+    try:
         bbasis = ACEBBasisSet(ace_potential)
-    elif isinstance(ace_potential, BBasisConfiguration):
-        bbasis = ACEBBasisSet(ace_potential)
-    elif isinstance(ace_potential, ACEBBasisSet):
-        bbasis = ace_potential
-    else:
+    except RuntimeError:
         raise ValueError(
-            "Unsupported format for 'ace_potential' argument ({}), ".format(
-                type(ace_potential)
-            )
-            + "must be .yaml filename, BBasisConfiguration or ACEBBasisSet"
+            f"Unsupported format for 'ace_potential' argument ({type(ace_potential)}), "
+            "must be .yaml filename, BBasisConfiguration or ACEBBasisSet"
         )
 
     elements_name = bbasis.elements_name
-    map_embedding_specifications = bbasis.map_embedding_specifications
-    map_bond_specifications = bbasis.map_bond_specifications
+    embed_specs_map = bbasis.map_embedding_specifications
+    bond_specs_map = bbasis.map_bond_specifications
 
-    print("Available element(s):", " ".join(elements_name))
+    print(f"Available element(s):{' '.join(elements_name)}")
     print("=" * 80)
     print(" " * 10, "Embeddings")
     print("=" * 80)
@@ -49,46 +43,30 @@ def analyse_potential_shape(ace_potential):
     for i, el in enumerate(elements_name):
         num_r1 = len(bbasis.basis_rank1[i])
         num_r = len(bbasis.basis[i])
-        embedding_specifications = map_embedding_specifications[i]
+        embed_specs = embed_specs_map[i]
         print(
-            "{:3}\t{}\t{}\t{}".format(
-                el,
-                embedding_specifications.ndensity,
-                embedding_specifications.npoti,
-                embedding_specifications.FS_parameters,
-            )
+            f"{el:3}\t{embed_specs.ndensity}\t{embed_specs.npoti}\t{embed_specs.FS_parameters}"
         )
         tot_n_func += num_r1 + num_r
 
     print("=" * 80)
-    print("Total number of functions: ", tot_n_func)
+    print(f"Total number of functions: {tot_n_func}")
     print()
 
     rcuts = {
         (elements_name[mu_i], elements_name[mu_j]): bond_spec.rcut
-        for (mu_i, mu_j), bond_spec in map_bond_specifications.items()
+        for (mu_i, mu_j), bond_spec in bond_specs_map.items()
     }
-    rcut_max = max(rcuts.values())
-
-    print("Maximum cutoff: ", rcut_max, "Ang")
+    print(f"Maximum cutoff: {max(rcuts.values())} Ang")
 
     print("=" * 40)
     print(" " * 10, "Bonds")
     print("=" * 40)
     print(
-        "{:^7} {:^10} {:^8} {:^8} {:^8} {:^8} {:^8} {:^8}".format(
-            "Bond",
-            "radbase",
-            "rcut",
-            "r_in",
-            "delta_in",
-            "prehc",
-            "lambdahc",
-            "core-rep",
-        )
+        f"{'Bond':^7} {'radbase':^10} {'rcut':^8} {'r_in':^8} {'delta_in':^8} {'prehc':^8} {'lambdahc':^8} {'core-rep':^8}"
     )
     print("=" * 40)
-    for (mu_i, mu_j), bond_spec in map_bond_specifications.items():
+    for (mu_i, mu_j), bond_spec in bond_specs_map.items():
         el_i = elements_name[mu_i]
         el_j = elements_name[mu_j]
         rc = bond_spec.rcut
@@ -96,7 +74,6 @@ def analyse_potential_shape(ace_potential):
             f"{el_i:^3}-{el_j:^3} {bond_spec.radbasename:^10} {rc:^8.3f} {bond_spec.rcut_in:^8.3f}"
             f" {bond_spec.dcut_in:^8.3f} {bond_spec.prehc:^8.3f} {bond_spec.lambdahc:^8.3f} {bond_spec.inner_cutoff_type:^8}",
         )
-
     print("=" * 40)
 
     print("\n")
@@ -152,7 +129,7 @@ def analyse_potential_shape(ace_potential):
     print("=" * 40)
 
 
-def main():
+def main() -> None:
     parser = build_parser()
     args_parse = parser.parse_args()
     potential_files = args_parse.potential_file
