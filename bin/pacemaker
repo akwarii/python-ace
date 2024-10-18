@@ -8,11 +8,11 @@ import re
 import shutil
 import socket
 import sys
-from shutil import copyfile
 from pathlib import Path
+from shutil import copyfile
 
 import pandas as pd
-import pkg_resources
+import importlib.resources
 import ruamel.yaml as yaml
 
 from pyace import __version__, get_ace_evaluator_version
@@ -478,10 +478,10 @@ def generate_template_input():
         weighting = None
         print("Use UniformWeightingPolicy")
 
-    template_input_yaml_filename = pkg_resources.resource_filename(
-        "pyace.data", "input_template.yaml"
-    )
-    copyfile(template_input_yaml_filename, "input.yaml")
+    template_input_yaml_filename = importlib.resources.files("pyace") / "data" / "input_template.yaml"
+    with importlib.resources.as_file(template_input_yaml_filename) as path:
+        copyfile(path, "input.yaml")
+
     with open("input.yaml", "r") as f:
         input_yaml_text = f.read()
 
