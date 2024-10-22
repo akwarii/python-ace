@@ -16,95 +16,101 @@ logging.basicConfig(level=logging.INFO, format=LOG_FMT, datefmt="%Y/%m/%d %H:%M:
 logger = logging.getLogger()
 
 
-# TODO improve parser help message
-# TODO create a group of required arguments
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pace_select",
-        description="Utility to select structures for training se based on D-optimality criterion",
+        description="Utility to select structures for training based on the D-optimality criterion.",
+        add_help=False,
     )
+    required = parser.add_argument_group("required named arguments")
+    optional = parser.add_argument_group("optional named arguments")
     parser.add_argument(
         "dataset",
         nargs="+",
-        help="Dataset file name(s), ex.: filename.pckl.gzip [extrapolative_structures.dat]",
+        help="Dataset file name(s), e.g., filename.pckl.gzip [extrapolative_structures.dat]",
         type=str,
     )
-    parser.add_argument(
+    required.add_argument(
         "-p",
         "--potential_file",
-        help="B-basis file name (.yaml)",
+        help="Path to the B-basis configuration file (.yaml)",
         type=str,
         required=True,
     )
-    parser.add_argument(
+    optional.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        help="Show this help message and exit",
+    )
+    optional.add_argument(
         "-a",
         "--active-set-inv",
-        help="Active Set Inverted (ASI) filename, considered as extra B-projections",
+        help="Path to the Active Set Inverted (ASI) file, used as extra B-projections",
         default=None,
         type=str,
         dest="active_set_inv_fname",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-e",
         "--elements",
         type=str,
-        help='List of elements, used in LAMMPS, i.e. "Ni Nb O"',
+        help='List of elements used in LAMMPS, e.g., "Ni Nb O"',
     )
-    parser.add_argument(
+    optional.add_argument(
         "-m",
         "--max-structures",
         type=int,
         dest="max_structures",
-        help="Maximum number of structures to select (default -1 = all)",
+        help="Maximum number of structures to select (default: -1, which means all)",
         default=-1,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-o",
         "--output",
         dest="selected_structures_filename",
         type=str,
-        help="Selected structures filename: selected.pkl.gz or structures/POSCAR (default: selected.pkl.gz)",
+        help="Filename for the selected structures, e.g., selected.pkl.gz or structures/POSCAR (default: selected.pkl.gz)",
         default="selected.pkl.gz",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-b",
         "--batch_size",
-        help="Batch size (number of structures) considered simultaneously."
-        "If not provided - all dataset at once is considered",
+        help="Batch size (number of structures) to consider simultaneously. If not provided, the entire dataset is considered at once",
         default="auto",
         type=str,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-g",
         "--gamma_tolerance",
-        help="Gamma tolerance",
+        help="Tolerance for the gamma parameter (default: 1.01)",
         default=1.01,
         type=float,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-i",
         "--maxvol_iters",
-        help="Number of maximum iteration in MaxVol algorithm",
+        help="Maximum number of iterations for the MaxVol algorithm (default: 300)",
         default=300,
         type=int,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-r",
         "--maxvol_refinement",
-        help="Number of refinements (epochs)",
+        help="Number of refinements (epochs) for the MaxVol algorithm (default: 2)",
         default=2,
         type=int,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-mem",
         "--memory-limit",
-        help="Memory limit (i.e. 1GB, 500MB or 'auto')",
+        help="Memory limit, e.g., 1GB, 500MB, or 'auto' (default: auto)",
         default="auto",
         type=str,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-V",
-        help="suppress verbosity of numerical procedures",
+        help="Suppress verbosity of numerical procedures",
         dest="not_verbose",
         default=False,
         action="store_true",
@@ -116,7 +122,6 @@ def main() -> None:
     parser = build_parser()
     args_parse = parser.parse_args()
 
-    # extract parameters
     potential_file = args_parse.potential_file
     dataset_filename = args_parse.dataset
     batch_size_option = args_parse.batch_size
@@ -142,8 +147,7 @@ def main() -> None:
     if isinstance(dataset_filename, list):
         df = load_multiple_datasets(dataset_filename, elements, verbose)
     else:
-        # TODO incorrect message (-d option doesn't exist)
-        raise ValueError(f"Unrecognized --dataset (-d) argument: {dataset_filename}")
+        raise ValueError(f"Could not load dataset file: {dataset_filename}")
 
     if verbose:
         logger.info(f"Number of candidate structures: {len(df['ase_atoms'])}")
