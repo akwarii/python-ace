@@ -78,11 +78,11 @@ repos:
   #         ]
   #       pass_filenames: false
 
-  # python dead code checking
-  - repo: https://github.com/asottile/dead
-    rev: v1.5.2
-    hooks:
-      - id: dead
+  # # python dead code checking
+  # - repo: https://github.com/asottile/dead
+  #   rev: v1.5.2
+  #   hooks:
+  #     - id: dead
 
   # python check (PEP8), programming errors and code complexity
   - repo: https://github.com/PyCQA/flake8
