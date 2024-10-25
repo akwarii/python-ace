@@ -162,7 +162,7 @@ def main() -> None:
         extra_A0_projections_dict = compute_A_active_inverse(asi)
     else:
         if verbose:
-            logger.info(f"No Active Set Inverted provided")
+            logger.info("No Active Set Inverted provided")
         extra_A0_projections_dict = None
 
     df_selected = select_structures_maxvol(

@@ -44,9 +44,7 @@ def analyse_potential_shape(ace_potential: str) -> None:
         num_r1 = len(bbasis.basis_rank1[i])
         num_r = len(bbasis.basis[i])
         embed_specs = embed_specs_map[i]
-        print(
-            f"{el:3}\t{embed_specs.ndensity}\t{embed_specs.npoti}\t{embed_specs.FS_parameters}"
-        )
+        print(f"{el:3}\t{embed_specs.ndensity}\t{embed_specs.npoti}\t{embed_specs.FS_parameters}")
         tot_n_func += num_r1 + num_r
 
     print("=" * 80)
@@ -81,9 +79,9 @@ def analyse_potential_shape(ace_potential: str) -> None:
     print(" " * 10, "Functions (per order)")
     print("=" * 40)
     for i, el in enumerate(bbasis.elements_name):
-        nradmax_dd = defaultdict(lambda: 0)  # [order] -> ns
-        lmax_dd = defaultdict(lambda: 0)  # [order] -> ls
-        nfuncs_dd = defaultdict(lambda: 0)  # [order] -> nfuncs
+        nradmax_dd = defaultdict(int)  # [order] -> ns
+        lmax_dd = defaultdict(int)  # [order] -> ls
+        nfuncs_dd = defaultdict(int)  # [order] -> nfuncs
 
         # order 1 - determine nradbase
         nradbase = max([max(func.ns) for func in bbasis.basis_rank1[i]])

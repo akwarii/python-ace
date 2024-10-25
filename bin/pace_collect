@@ -76,7 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
         "Example: 'Cu:-0.456 Zn:auto'. Note the spacing. Default is zero for all elements.",
         nargs="*",
         dest="free_atom_energy",
-        default=defaultdict(lambda: 0),
+        default=defaultdict(int),
         action=ParseKwargs,
     )
     parser.add_argument(
@@ -95,7 +95,7 @@ def get_ase_atoms_energy_forces(atoms: Atoms) -> tuple[Atoms, float, np.ndarray]
     """
     Extracts ASE atoms, free energy, and forces from the given ASE atoms object.
     This is a helper function to create a clean ASE atoms object from the given
-    ASE atoms object that may include lot of DFT informations.
+    ASE atoms object that may include lot of DFT information.
 
     :param atoms: The ASE atoms object.
 
@@ -238,9 +238,7 @@ def main() -> None:
             vasp_output_dict = extract_vasp_data(f, selection)
             for key, value in vasp_output_dict.items():
                 data[key] += value
-            logger.info(
-                f"Successfully collected {len(vasp_output_dict['name'])} entries from {f}"
-            )
+            logger.info(f"Successfully collected {len(vasp_output_dict['name'])} entries from {f}")
         except Exception as e:
             logger.error(f"Error while trying to read {f}: {e}")
 
@@ -291,29 +289,29 @@ def main() -> None:
 
     # Statistics
     number_atoms = df["ase_atoms"].map(len).sum()
+
+    mean_energy = df["energy_corrected_per_atom"].mean()
+    std_energy = df["energy_corrected_per_atom"].std()
+    min_energy = df["energy_corrected_per_atom"].min()
+    max_energy = df["energy_corrected_per_atom"].max()
+
     df["magnitude_forces"] = df["forces"].map(np.linalg.norm)
+    avg_force_mag = df["magnitude_forces"].mean()
+    std_force_mag = df["magnitude_forces"].std()
+    min_force_mag = df["magnitude_forces"].min()
+    max_force_mag = df["magnitude_forces"].max()
 
     logger.info(f"Total number of structures: {len(df)}")
     logger.info(f"Total number of atoms: {number_atoms}")
     logger.info(f"Mean number of atoms per structure: {number_atoms / len(df):.3f}")
 
-    logger.info(
-        f"Average energy per atom: {df['energy_corrected_per_atom'].mean():.3f} eV/atom"
-    )
-    logger.info(
-        f"Std. dev. of energy per atom: {df['energy_corrected_per_atom'].std():.3f} eV/atom"
-    )
-    logger.info(
-        f"Minimum / maximum energy per atom: {df['energy_corrected_per_atom'].min():.3f} / {df['energy_corrected_per_atom'].max():.3f} eV/atom"
-    )
+    logger.info(f"Average energy per atom: {mean_energy:.3f} eV/atom")
+    logger.info(f"Std. dev. of energy per atom: {std_energy:.3f} eV/atom")
+    logger.info(f"Min / max energy per atom: {min_energy:.3f} / {max_energy:.3f} eV/atom")
 
-    logger.info(f"Average force magnitude: {df['magnitude_forces'].mean():.3f} eV/A")
-    logger.info(
-        f"Std. dev. of force magnitude: {df['magnitude_forces'].std():.3f} eV/A"
-    )
-    logger.info(
-        f"Minimum / maximum force magnitude: {df['magnitude_forces'].min():.3f} / {df['magnitude_forces'].max():.3f} eV/A"
-    )
+    logger.info(f"Average force magnitude: {avg_force_mag:.3f} eV/A")
+    logger.info(f"Std. dev. of force magnitude: {std_force_mag:.3f} eV/A")
+    logger.info(f"Min / max force magnitude: {min_force_mag:.3f} / {max_force_mag:.3f} eV/A")
 
     # Clean up and store the dataset
     df.drop(
