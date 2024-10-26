@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-import argparse
+from argparse import ArgumentParser
 from collections import defaultdict
 
 from pyace import ACEBBasisSet
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
         prog="pace_info",
         description="Utility to analyze the shape and parameters of PACE (.yaml) potentials.",
     )

@@ -1,11 +1,11 @@
-#!/usr/bin/python3
-import argparse
+#!/usr/bin/env python
+from argparse import ArgumentParser
 
 from pyace import ACEBBasisSet
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
         prog="pace_yaml2yace",
         description="Utility to convert B-basis YAML files to Ctilde-basis YACE files.",
     )
@@ -27,7 +27,7 @@ def build_parser():
     return parser
 
 
-def main():
+def main() -> None:
     parser = build_parser()
     args_parse = parser.parse_args()
     input_yaml_filenames = args_parse.input

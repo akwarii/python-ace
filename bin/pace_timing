@@ -1,13 +1,13 @@
-#!/usr/bin/python3
-import argparse
+#!/usr/bin/env python
+from argparse import ArgumentParser
 
 import numpy as np
 
 from pyace.utils.timing import run_timing_test
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
         prog="pace_timing",
         description="Run a single-CPU timing test for PACE (.yaml) potential files.",
     )

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import argparse
 import logging
+from argparse import ArgumentParser
 from pathlib import Path
 
 from pyace import BBasisConfiguration
@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.INFO, format=LOG_FMT, datefmt="%Y/%m/%d %H:%M:
 logger = logging.getLogger()
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
         prog="pace_select",
         description="Utility to select structures for training based on the D-optimality criterion.",
         add_help=False,
