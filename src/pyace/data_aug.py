@@ -1,17 +1,13 @@
 import numpy as np
 import pandas as pd
-
-try:
-    from matplotlib import pylab as plt
-except Exception:
-    plt = None
-
+from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.neighborlist import neighbor_list
-from ase.units import _eps0, _e
-
+from ase.units import _e, _eps0
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
+
+from pyace import PyACECalculator
 
 # string consts
 ZBL = "zbl"
@@ -58,9 +54,7 @@ def dphi(x):
 def d2phi(x):
     if not isinstance(x, np.ndarray):
         x = np.array(x)
-    return np.sum(
-        phi_coefs * phi_exps * phi_exps * np.exp(x.reshape(-1, 1) * phi_exps), axis=1
-    )
+    return np.sum(phi_coefs * phi_exps * phi_exps * np.exp(x.reshape(-1, 1) * phi_exps), axis=1)
 
 
 # common factor: K*Zi*Zj*
@@ -93,73 +87,72 @@ class ZBLCalculator(Calculator):
 
     implemented_properties = ["energy", "free_energy", "forces"]
 
-    def __init__(self, cut_in=0, cutoff=3, **kwargs):
+    def __init__(
+        self,
+        cut_in: float = 0.0,
+        cutoff: float = 3.0,
+        **kwargs,
+    ) -> None:
         Calculator.__init__(self, **kwargs)
-        self.cut_in = cut_in
-        self.cutoff = cutoff
+        self.inner_cutoff = cut_in
+        self.outer_cutoff = cutoff
 
         self.energy = None
         self.forces = None
 
     def calculate(
         self,
-        atoms=None,
-        properties=["energy", "forces", "free_energy"],
-        system_changes=all_changes,
-    ):
+        atoms: Atoms | None = None,
+        properties: list[str] = ["energy", "forces", "free_energy"],
+        system_changes: list[str] = all_changes,
+    ) -> None:
         Calculator.calculate(self, atoms, properties, system_changes)
 
-        nl_i, nl_j, d, D = neighbor_list("ijdD", atoms, cutoff=self.cutoff)
+        nl_i, nl_j, d, D = neighbor_list("ijdD", atoms, cutoff=self.outer_cutoff)
 
-        atomic_numbers = atoms.get_atomic_numbers()
+        atomic_numbers = atoms.get_atomic_numbers()  # type: ignore
         Zi = atomic_numbers[nl_i]
         Zj = atomic_numbers[nl_j]
 
+        # ZBL potential
         a = 0.46850 / (Zi**0.23 + Zj**0.23)
 
         E_ij = fun_E_ij(d, a)
 
-        Ec = fun_E_ij(self.cutoff, a)
-        dEc = fun_dE_ij(self.cutoff, a)
-        d2Ec = fun_d2E_ij(self.cutoff, a)
+        Ec = fun_E_ij(self.outer_cutoff, a)
+        dEc = fun_dE_ij(self.outer_cutoff, a)
+        d2Ec = fun_d2E_ij(self.outer_cutoff, a)
 
-        drcut = self.cutoff - self.cut_in
+        drcut = self.outer_cutoff - self.inner_cutoff
 
         A = (-3 * dEc + drcut * d2Ec) / drcut**2
         B = (2 * dEc - drcut * d2Ec) / drcut**3
         C = -Ec + 1 / 2 * drcut * dEc - 1 / 12 * drcut**2 * d2Ec
 
-        S = A / 3 * (d - self.cut_in) ** 3 + B / 4 * (d - self.cut_in) ** 4 + C  # S(r)
+        S = A / 3 * (d - self.inner_cutoff) ** 3 + B / 4 * (d - self.inner_cutoff) ** 4 + C  # S(r)
 
-        S[d < self.cut_in] = C[d < self.cut_in]
-        S[d > self.cutoff] = 0
+        S[d < self.inner_cutoff] = C[d < self.inner_cutoff]
+        S[d > self.outer_cutoff] = 0
         self.energy = K / 2 * np.sum(Zi * Zj * (E_ij + S))
 
         # forces
-        # if "forces" in properties:
         dEdr = fun_dE_ij(d, a)
-        dS_dr = A * (d - self.cut_in) ** 2 + B * (d - self.cut_in) ** 3
 
-        dS_dr[d < self.cut_in] = 0
-        dS_dr[d > self.cutoff] = 0
+        dS_dr = A * (d - self.inner_cutoff) ** 2 + B * (d - self.inner_cutoff) ** 3
+        dS_dr[(d < self.inner_cutoff) | (d > self.outer_cutoff)] = 0.0
 
         pair_forces = -(dEdr + dS_dr).reshape(-1, 1) * (D / d.reshape(-1, 1))
         pair_forces *= (Zi * Zj).reshape(-1, 1) * K / 2
 
-        nat = len(atoms)
+        nat = len(atoms)  # type: ignore
+        forces = [
+            np.bincount(nl_j, weights=pair_forces[:, i], minlength=nat)
+            - np.bincount(nl_i, weights=pair_forces[:, i], minlength=nat)
+            for i in range(3)
+        ]
+        self.forces = np.vstack(forces).T
 
-        forces_x = np.bincount(
-            nl_j, weights=pair_forces[:, 0], minlength=nat
-        ) - np.bincount(nl_i, weights=pair_forces[:, 0], minlength=nat)
-        forces_y = np.bincount(
-            nl_j, weights=pair_forces[:, 1], minlength=nat
-        ) - np.bincount(nl_i, weights=pair_forces[:, 1], minlength=nat)
-        forces_z = np.bincount(
-            nl_j, weights=pair_forces[:, 2], minlength=nat
-        ) - np.bincount(nl_i, weights=pair_forces[:, 2], minlength=nat)
-
-        self.forces = np.vstack([forces_x, forces_y, forces_z]).T
-
+        # results
         self.results["energy"] = self.energy
         self.results["free_energy"] = self.energy
         self.results["forces"] = self.forces
@@ -175,26 +168,30 @@ def E_ER(V, *pars):
     return E_ER_pars(V, pars)
 
 
-def get_min_nn_dist(atoms, cutoff=7):
+def get_min_nn_dist(atoms: Atoms, cutoff: float = 7.0) -> float:
     """Compute minimal nearest-neighbours (NN) distance in `atoms` (maximum up to `cutoff`)"""
     min_nn_dist = np.min(neighbor_list("d", atoms, cutoff=cutoff))
     return min_nn_dist
 
 
 def make_cell_for_non_periodic_structure(
-    structure, wrapped=True, scale=None, alat=None, min_cell_len=10
-):
+    atoms: Atoms,
+    wrapped: bool = True,
+    scale: float = 3.0,
+    alat: float | None = None,
+    min_cell_len=10.0,
+) -> list[list[float]]:
     """
-    function to generate a cell with sides s_i; s_i = diameter_i + (alat*scale) adapted
+    Function to generate a cell with sides s_i; s_i = diameter_i + (alat*scale) adapted
     from Minaam Quamar
 
-    structure: ase.Atoms object
+    atoms: ase.Atoms object
         must be an atoms object with pbc=False and cell=[0,0,0]
         with both positive and negative cartesian positions.
 
         In case `structure` is provided as a periodic structure,
         set argument `wrapped=False` to wrap the positions around the
-        origin to resemble a non-periodic struc
+        origin to resemble a non-periodic struct
 
     alat: float
         ground state equilibrium lattice constant for the element
@@ -210,11 +207,14 @@ def make_cell_for_non_periodic_structure(
         relative atomic positions slightly. So avoid unless necessary
 
     """
+    if alat is None:
+        raise ValueError("alat must be provided")
+
     if not wrapped:
-        structure.wrap(center=[0, 0, 0])
+        atoms.wrap(center=[0, 0, 0])
 
     # get all the x,y,z positions
-    pos = structure.positions
+    pos = atoms.positions
     x, y, z = pos.T
 
     # get the diameter of the cluster in x,y,z
@@ -232,26 +232,31 @@ def make_cell_for_non_periodic_structure(
 
     # generate orthogonal cell
     cell = [
-        [max(X + (scale * alat), min_cell_len), 0, 0],
-        [0, max(Y + (scale * alat), min_cell_len), 0],
-        [0, 0, max(Z + (scale * alat), min_cell_len)],
+        [max(X + (scale * alat), min_cell_len), 0.0, 0.0],
+        [0.0, max(Y + (scale * alat), min_cell_len), 0.0],
+        [0.0, 0.0, max(Z + (scale * alat), min_cell_len)],
     ]
 
     return cell
 
 
-def make_periodic_structure(structure, wrapped=True, scale=5.0, alat=2):
-    structure = structure.copy()
-    if not all(structure.get_pbc()):
+def make_periodic_structure(
+    atoms: Atoms,
+    wrapped: bool = True,
+    scale: float = 5.0,
+    alat: float = 2.0,
+) -> Atoms:
+    atoms = atoms.copy()
+    if not all(atoms.get_pbc()):
         orthogonal_cell = make_cell_for_non_periodic_structure(
-            structure, wrapped=wrapped, scale=scale, alat=alat
+            atoms, wrapped=wrapped, scale=scale, alat=alat
         )
-        structure.set_cell(orthogonal_cell)
-        structure.set_pbc(True)
-    return structure
+        atoms.set_cell(orthogonal_cell)
+        atoms.set_pbc(True)
+    return atoms
 
 
-def enforce_pbc_structure(basis_ref):
+def enforce_pbc_structure(basis_ref: Atoms) -> tuple[Atoms, bool]:
     if not all(basis_ref.get_pbc()):
         basis_ref = make_periodic_structure(basis_ref)
         enforced_pbc = True
@@ -260,45 +265,56 @@ def enforce_pbc_structure(basis_ref):
     return basis_ref, enforced_pbc
 
 
-def remove_pbc(atoms):
+def remove_pbc(atoms: Atoms) -> None:
     atoms.set_cell(None, scale_atoms=False)
     atoms.set_pbc(False)
 
 
-def generate_nndist_atoms(original_atoms, nn_distances, cutoff=7):
+def generate_nndist_atoms(
+    original_atoms: Atoms,
+    nn_distances: list[np.ndarray],
+    cutoff: float = 7.0,
+) -> list[Atoms]:
     original_atoms, enforced_pbc = enforce_pbc_structure(original_atoms)
     min_nn_dist = get_min_nn_dist(original_atoms, cutoff=cutoff)
 
     atoms_list = []
     for z in nn_distances:
         at = original_atoms.copy()
-        cell = at.get_cell()
-        cell *= z / min_nn_dist
+        cell = at.get_cell() * z / min_nn_dist
         at.set_cell(cell, scale_atoms=True)
+
         if enforced_pbc:
             remove_pbc(at)
+
         atoms_list.append(at)
 
     return atoms_list
 
 
-def fit_eos(vpas, epas, n_fit_iter, e_best_rmse_threshold, random_state):
+def fit_eos(
+    vpas: pd.Series,
+    epas: pd.Series,
+    fit_iterations: int,
+    best_rmse_threshold: float,
+    seed: int,
+) -> tuple[np.ndarray, float]:
     if len(vpas) < 4:
         raise RuntimeError(
             f"Number of reliable data-points ({len(vpas)}) is less than minimal required for EOS (4)"
         )
 
-    if random_state is not None:
-        np.random.seed(random_state)
+    if seed is not None:
+        np.random.seed(seed)
 
     p0 = np.array((-5, 20, 0.5, 1))
     # random shuffle for best params optimization
     e_best_rmse = np.inf
     best_parsER = None
-    for it in range(n_fit_iter):
-        try:
-            dp0 = 0 if it == 0 else np.random.randn(4) * np.array([10, 20, 5, 5]) * 2
+    for it in range(fit_iterations):
+        dp0 = 0 if it == 0 else np.random.randn(4) * np.array([10, 20, 5, 5]) * 2
 
+        try:
             parsER, _ = curve_fit(
                 E_ER,
                 vpas,
@@ -306,21 +322,48 @@ def fit_eos(vpas, epas, n_fit_iter, e_best_rmse_threshold, random_state):
                 p0=p0 + dp0,
                 maxfev=1000,
             )
-            e_rmse = np.sqrt(np.mean((E_ER_pars(vpas, parsER) - epas) ** 2))
-            if e_rmse < e_best_rmse:
-                e_best_rmse = e_rmse
-                best_parsER = parsER
-                print("E_rmse:", e_rmse)
-            if e_best_rmse < e_best_rmse_threshold:
-                break
         except Exception as e:
             print("Exception:", e)
+            continue
 
-    return best_parsER, e_best_rmse
+        e_rmse = np.sqrt(np.mean((E_ER_pars(vpas, parsER) - epas) ** 2))
+        if e_rmse < e_best_rmse:
+            e_best_rmse = e_rmse
+            best_parsER = parsER
+            print("E_rmse:", e_rmse)
+
+        if e_best_rmse < best_rmse_threshold:
+            break
+
+    return best_parsER, e_best_rmse  # type: ignore
 
 
-def plot_all(df, df_reliable=None, df_selected=None, plot_eos=True, plot_zbl=False):
-    if not plt:
+def plot_all(
+    df: pd.DataFrame,
+    df_reliable: pd.DataFrame | None = None,
+    df_selected: pd.DataFrame | None = None,
+    plot_eos: bool = True,
+    plot_zbl: bool = False,
+) -> None:
+    """
+    Helper function to plot various energy per atom (EPA) data against the distance (z) for a given DataFrame.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The main DataFrame containing the data to be plotted. Must include columns 'z' and 'epa'.
+    df_reliable : pd.DataFrame, optional
+        An optional DataFrame containing reliable EPA data to be plotted. Must include columns 'z' and 'epa'.
+    df_selected : pd.DataFrame, optional
+        An optional DataFrame containing selected EPA data to be plotted. Must include columns 'z' and 'energy_corrected_per_atom'.
+    plot_eos : bool, default=True
+        If True, plots the EOS (Equation of State) data.
+    plot_zbl : bool, default=False
+        If True, plots the ZBL (Ziegler-Biersack-Littmark) data.
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
         return
 
     title = df.iloc[0]["ase_atoms"].get_chemical_formula()
@@ -352,65 +395,89 @@ def plot_all(df, df_reliable=None, df_selected=None, plot_eos=True, plot_zbl=Fal
             label="AUG data",
         )
 
-    plt.legend()
-    plt.yscale("symlog")  # , linear_width=1e-1)
-    # plt.xlim(*nn_distance_range)
-    plt.ylim(-10, None)
     plt.title(title)
+    plt.legend()
+
     plt.xlabel("z, A")
     plt.ylabel("E, eV/at")
+
+    plt.yscale("symlog")
+    plt.ylim(-10, None)
+
     plt.show()
 
 
 def augment_structure_eos(
-    atoms,
-    calc,
-    nn_distance_range=(1, 5),
-    nn_distance_step=0.1,
-    reliability_criteria=KINK,  # "extrapolation" or "kink"
-    augmentation_type=EOS,  # "eos" or "zbl"
-    epa_reliable_max=None,
-    epa_aug_max=None,
-    epa_aug_min=None,
-    gamma_max=10,
-    eos_fit_n_iter=20,
-    eos_fit_rmse_threshold=0.5,
-    eos_fit_random_state=None,
-    plot_verbose=False,
-    plot_eos=False,
-    plot_zbl=False,
-    zbl_r_in=0,
-    zbl_r_out=4,
-):
+    atoms: Atoms,
+    calc: PyACECalculator,
+    nn_distance_range: tuple[float, float] = (1.0, 5.0),
+    nn_distance_step: float = 0.1,
+    reliability_criteria: str = KINK,
+    augmentation_type: str = EOS,
+    epa_reliable_max: float | None = None,
+    epa_aug_max: float | None = None,
+    epa_aug_min: float | None = None,
+    gamma_max: float = 10.0,
+    eos_fit_n_iter: int = 20,
+    eos_fit_rmse_threshold: float = 0.5,
+    eos_seed: int | None = None,
+    plot_verbose: bool = False,
+    plot_eos: bool = False,
+    plot_zbl: bool = False,
+    zbl_r_in: float = 0.0,
+    zbl_r_out: float = 4.0,
+) -> pd.DataFrame:
     """
-    atoms: ASE atoms
-    calc: (PyACE) calculator
-    nn_distance_range: NN distance range default=(1, 5),
-    nn_distance_step: NN step default=0.1,
-    reliability_criteria: "extrapolation" or "kink"
-    augmentation_type:  "eos" or "zbl"
-    epa_reliable_max=None,
-    epa_aug_max=None,
-    epa_aug_min=None,
-    gamma_max=10,
-    eos_fit_n_iter=20,
-    eos_fit_rmse_threshold=0.5,
-    eos_fit_random_state=None,
-    plot_verbose=False,
-    plot_eos=False,
-    plot_zbl=False,
-    zbl_r_in=0,
-    zbl_r_out=4,
-    """
+    Augments the structure of atoms using Equation of State (EOS) or Ziegler-Biersack-Littmark (ZBL) methods.
 
+    Parameters:
+    -----------
+    atoms : Atoms
+        The atomic structure to be augmented.
+    calc : PyACECalculator
+        The calculator used for energy and force calculations.
+    nn_distance_range : tuple[float, float], optional
+        The range of nearest neighbor distances to consider, by default (1.0, 5.0).
+    nn_distance_step : float, optional
+        The step size for nearest neighbor distances, by default 0.1.
+    reliability_criteria : str, optional
+        The criteria for reliability, by default KINK.
+    augmentation_type : str, optional
+        The type of augmentation to perform, either EOS or ZBL, by default EOS.
+    epa_reliable_max : float | None, optional
+        The maximum reliable energy per atom, by default None.
+    epa_aug_max : float | None, optional
+        The maximum augmented energy per atom, by default None.
+    epa_aug_min : float | None, optional
+        The minimum augmented energy per atom, by default None.
+    gamma_max : float, optional
+        The maximum gamma value for reliability, by default 10.0.
+    eos_fit_n_iter : int, optional
+        The number of iterations for EOS fitting, by default 20.
+    eos_fit_rmse_threshold : float, optional
+        The RMSE threshold for EOS fitting, by default 0.5.
+    eos_seed : int | None, optional
+        The seed for EOS fitting, by default None.
+    plot_verbose : bool, optional
+        Whether to plot verbose information, by default False.
+    plot_eos : bool, optional
+        Whether to plot EOS information, by default False.
+    plot_zbl : bool, optional
+        Whether to plot ZBL information, by default False.
+    zbl_r_in : float, optional
+        The inner radius for ZBL, by default 0.0.
+    zbl_r_out : float, optional
+        The outer radius for ZBL, by default 4.0.
+
+    Returns:
+    --------
+    pd.DataFrame
+        A DataFrame containing the augmented atomic structures and related data.
+    """
     plot_verbose = plot_verbose or (plot_eos or plot_zbl)
     compute_zbl = augmentation_type == ZBL or plot_zbl
     compute_eos = augmentation_type == EOS or plot_eos
 
-    # plot it, if compute it
-    # if plot_verbose:
-    #     plot_zbl=compute_zbl
-    #     plot_eos=compute_eos
     natoms = len(atoms)
     compute_gamma = reliability_criteria == EXTRAPOLATION
     df = compute_enn_df(
@@ -424,43 +491,30 @@ def augment_structure_eos(
         zbl_r_out,
     )
 
-    df_reliable = select_reliable_enn_part(
-        df, reliability_criteria, epa_reliable_max, gamma_max
-    )
+    df_reliable = select_reliable_enn_part(df, reliability_criteria, epa_reliable_max, gamma_max)
 
     epa_reliable_max = df_reliable[EPA_C].max()
     vpa_reliable_min = df_reliable[VPA_C].min()
-
-    # generate prediction over wide range
-    # zs_wide = np.arange(0.2, max(nn_distances), 0.25)
-    # min_nn_dist = get_min_nn_dist(atoms)
-    # v0 = atoms.get_volume() / natoms
-    # vs_wide = (zs_wide / min_nn_dist) ** 3 * v0
 
     if compute_eos:
         best_parsER, e_best_rmse = fit_eos(
             df_reliable[VPA_C],
             df_reliable[EPA_C],
-            n_fit_iter=eos_fit_n_iter,
-            e_best_rmse_threshold=eos_fit_rmse_threshold,
-            random_state=eos_fit_random_state,
+            fit_iterations=eos_fit_n_iter,
+            best_rmse_threshold=eos_fit_rmse_threshold,
+            seed=eos_seed,
         )
         print("BEST E_RMSE:", e_best_rmse)
 
         df[EPA_EOS_C] = E_ER_pars(df[VPA_C], best_parsER)
-        df[FORCES_EOS_C] = df[ASE_ATOMS_C].map(lambda a: np.zeros((len(a), 3)))
+        df[FORCES_EOS_C] = df[ASE_ATOMS_C].map(lambda a: np.zeros((len(a), 3)))  # type: ignore
 
         if e_best_rmse > eos_fit_rmse_threshold and not augmentation_type == ZBL:
             if plot_verbose:
-                plot_all(
-                    df, df_reliable, df_selected=None, plot_eos=True, plot_zbl=plot_zbl
-                )
-            raise RuntimeError(
-                "Cannot reliabley fit EOS-ER to ACE data, E-RMSE={}".format(e_best_rmse)
-            )
+                plot_all(df, df_reliable, df_selected=None, plot_eos=True, plot_zbl=plot_zbl)
+            raise RuntimeError(f"Cannot reliabley fit EOS-ER to ACE data, E-RMSE={e_best_rmse}")
 
     # augment data
-
     df_selected = df.copy()
     if augmentation_type == ZBL:
         df_selected[EPA_CORRECTED_C] = df_selected[EPA_ZBL_C]
@@ -485,9 +539,7 @@ def augment_structure_eos(
 
     df_selected[E_CORRECTED_C] = df_selected[EPA_CORRECTED_C] * natoms
 
-    df_selected[NAME_C] = (
-        "augmented/" + augmentation_type + "/" + atoms.get_chemical_formula()
-    )
+    df_selected[NAME_C] = "augmented/" + augmentation_type + "/" + atoms.get_chemical_formula()
 
     if plot_verbose:
         plot_all(
@@ -513,32 +565,30 @@ def augment_structure_eos(
 
 
 def compute_enn_df(
-    atoms,
-    calc,
-    compute_zbl=False,
-    nn_distance_range=(1, 5),
-    nn_distance_step=0.1,
-    compute_gamma=False,
-    zbl_r_in=0,
-    zbl_r_out=4,
-):
+    atoms: Atoms,
+    calc: PyACECalculator,
+    compute_zbl: bool = False,
+    nn_distance_range: tuple[float, float] = (1.0, 5.0),
+    nn_distance_step: float = 0.1,
+    compute_gamma: bool = False,
+    zbl_r_in: float = 0.0,
+    zbl_r_out: float = 4.0,
+) -> pd.DataFrame:
     if compute_zbl:
         zblcalc = ZBLCalculator(cut_in=zbl_r_in, cutoff=zbl_r_out)
 
-    nn_distances = list(np.arange(*nn_distance_range, nn_distance_step))
     natoms = len(atoms)
     structs = []
-    epas = []
-    vpas = []
-    zs = []
-    gammas = []
-    gamma_per_atom = []
-    epa_zbls = []
-    fzbls = []
+    epas, vpas, epa_zbls = [], [], []
+    gammas, gamma_per_atom = [], []
+    zs, fzbls = [], []
+
+    nn_distances = list(np.arange(*nn_distance_range, nn_distance_step))
     for z, curr_atoms in zip(nn_distances, generate_nndist_atoms(atoms, nn_distances)):
         # compute ACE energy
         curr_atoms.set_calculator(calc)
         epas.append(curr_atoms.get_potential_energy() / natoms)
+
         try:
             vpas.append(curr_atoms.get_volume() / natoms)
         except Exception as e:
@@ -555,41 +605,49 @@ def compute_enn_df(
             curr_atoms.set_calculator(zblcalc)
             epa_zbls.append(curr_atoms.get_potential_energy() / natoms)
             fzbls.append(curr_atoms.get_forces())
+
     df = (
         pd.DataFrame({VPA_C: vpas, EPA_C: epas, Z_C: zs, ASE_ATOMS_C: structs})
         .sort_values(Z_C)
         .reset_index(drop=True)
     )
+
     if compute_gamma:
         df[GAMMA_C] = gammas
         df[GAMMA_PER_ATOM_C] = gamma_per_atom
+
     if compute_zbl:
         df[EPA_ZBL_C] = epa_zbls
         df[FORCES_ZBL_C] = fzbls
+
     return df
 
 
 def select_reliable_enn_part(
-    df, reliability_criteria=KINK, epa_reliable_max=None, gamma_max=1.5
-):
+    df: pd.DataFrame,
+    reliability_criteria: str = KINK,
+    epa_reliable_max: float | None = None,
+    gamma_max: float = 1.5,
+) -> pd.DataFrame:
     # Selection of reliable part (required for all augmentation types)
     if reliability_criteria == KINK:
         peaks, _ = find_peaks(df[EPA_C])
+
         if len(peaks) == 0:
             df_reliable = df.copy()
-            # if plot_verbose and augmentation_type != ZBL:
-            #     plot_all(df, df_reliable, df_selected=None, plot_eos=False, plot_zbl=compute_zbl)
-            # print("No kink in ACE-data E(V) found, this structure is good")
         else:
             # get up to last peak
             p = peaks[-1]
             df_reliable = df.iloc[p:].copy()
+
     elif reliability_criteria == EXTRAPOLATION:
         df_reliable = df[df[GAMMA_C] < gamma_max].copy()
     else:
         raise NotImplementedError(
             f"Reliability_criteria '{reliability_criteria}' is not implemented"
         )
+
     if epa_reliable_max is not None:
         df_reliable = df_reliable[df_reliable[EPA_C] <= epa_reliable_max].copy()
+
     return df_reliable
