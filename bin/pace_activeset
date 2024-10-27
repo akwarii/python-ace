@@ -1,117 +1,130 @@
 #!/usr/bin/env python
-import argparse
 import logging
-import sys
-
 import os
+import sys
+from argparse import ArgumentParser
 
 import numpy as np
 
-from pyace import BBasisConfiguration, ACEBBasisSet, aseatoms_to_atomicenvironment
-from pyace.activelearning import (
-    compute_B_projections,
-    compute_active_set,
-    compute_active_set_by_batches,
-    compute_A_active_inverse,
-    compute_extrapolation_grade,
-    compute_number_of_functions,
-    count_number_total_atoms_per_species_type,
-    save_active_inverse_set,
-    extract_reference_forces_dict,
-)
-from pyace.preparedata import sizeof_fmt
-
+from pyace import ACEBBasisSet, BBasisConfiguration, aseatoms_to_atomicenvironment
 from pyace.aceselect import (
-    compute_mem_limit,
     compute_batch_size,
+    compute_mem_limit,
     compute_required_memory,
     load_datasets,
 )
+from pyace.activelearning import (
+    compute_A_active_inverse,
+    compute_active_set,
+    compute_active_set_by_batches,
+    compute_B_projections,
+    compute_extrapolation_grade,
+    compute_number_of_functions,
+    count_number_total_atoms_per_species_type,
+    extract_reference_forces_dict,
+    save_active_inverse_set,
+)
+from pyace.preparedata import sizeof_fmt
 
 LOG_FMT = "%(asctime)s %(levelname).1s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FMT, datefmt="%Y/%m/%d %H:%M:%S")
 log = logging.getLogger()
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
         prog="pace_activeset",
-        description="Utility to compute active set for PACE (.yaml) potential",
+        description="Utility to compute the active set for PACE (.yaml) potential files.",
+        add_help=False,
     )
-    parser.add_argument("potential_file", help="B-basis file name (.yaml)", type=str)
+    required = parser.add_argument_group("required named arguments")
+    optional = parser.add_argument_group("optional named arguments")
     parser.add_argument(
+        "potential_file",
+        help="Path to the B-basis file (.yaml).",
+        type=str,
+    )
+    required.add_argument(
         "-d",
         "--dataset",
         action="append",
-        help="Dataset file name(s), ex.: -d filename.pckl.gzip [-d filename2.pckl.gzip]",
+        help="Path(s) to dataset file(s). Example: -d filename.pckl.gzip [-d filename2.pckl.gzip].",
         type=str,
         required=True,
     )
-    parser.add_argument(
+    optional.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        help="Show this help message and exit",
+    )
+    optional.add_argument(
         "-q",
         "--query",
         type=str,
         default=None,
-        help="""pd.query argument for further filtering dataset. Example: -q 'not name.str.contains("augmented")'""",
+        help="Pandas .query argument for further filtering the dataset. Example: -q 'not name.str.contains(\"augmented\")'.",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-f",
         "--full",
-        help="Compute active set on full (linearized) design matrix",
+        help="Compute the active set on the full (linearized) design matrix.",
         action="store_true",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-b",
         "--batch_size",
-        help="Batch size (number of structures) considered simultaneously."
-        "If not provided - all dataset at once is considered",
+        help="Batch size (number of structures) to be considered simultaneously. If not provided, the entire dataset is considered at once.",
         default="auto",
         type=str,
     )
-    parser.add_argument(
-        "-g", "--gamma_tolerance", help="Gamma tolerance", default=1.01, type=float
+    optional.add_argument(
+        "-g",
+        "--gamma_tolerance",
+        help="Tolerance for the gamma parameter.",
+        default=1.01,
+        type=float,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-i",
         "--maxvol_iters",
-        help="Number of maximum iteration in MaxVol algorithm",
+        help="Maximum number of iterations for the MaxVol algorithm.",
         default=300,
         type=int,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-r",
         "--maxvol_refinement",
-        help="Number of refinements (epochs)",
+        help="Number of refinement epochs.",
         default=5,
         type=int,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-m",
         "--memory-limit",
-        help="Memory limit (i.e. 1GB, 500MB or 'auto')",
+        help="Memory limit (e.g., 1GB, 500MB, or 'auto').",
         default="auto",
         type=str,
     )
-    parser.add_argument(
+    optional.add_argument(
         "-e",
-        "--error-force-threshold [max RMSE(F) (eV/A)]",
+        "--error-force-threshold",
         default=0,
         type=float,
-        help="Include into active set only atoms with force RMSE error lower than provided. "
-        "If zero, then Q3+1.5*IQR upper range will be used",
+        help="Include only atoms with force RMSE error lower than the provided threshold in the active set. If zero, the upper range Q3+1.5*IQR will be used.",
         dest="error_based_threshold",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-a",
         "--all-atoms",
-        help="Consider all atoms for construction of active set",
+        help="Consider all atoms for constructing the active set.",
         dest="all_atoms",
         default=False,
         action="store_true",
     )
-    parser.add_argument(
+    optional.add_argument(
         "-V",
-        help="suppress verbosity of numerical procedures",
+        help="Suppress verbosity of numerical procedures.",
         dest="not_verbose",
         default=False,
         action="store_true",
@@ -120,38 +133,36 @@ def build_parser():
     return parser
 
 
-def main():
+def main() -> None:
     parser = build_parser()
+    args = parser.parse_args()
 
-    args_parse = parser.parse_args()
-    potential_file = args_parse.potential_file
-    dataset_filename = args_parse.dataset
-    batch_size_option = args_parse.batch_size
-    gamma_tolerance = args_parse.gamma_tolerance
-    maxvol_iters = args_parse.maxvol_iters
-    maxvol_refinement = args_parse.maxvol_refinement
-    mem_lim_option = args_parse.memory_limit
-    is_full = args_parse.full
-    error_based_threshold = args_parse.error_based_threshold
-    all_atoms = args_parse.all_atoms
-    verbose = not args_parse.not_verbose
-    query = args_parse.query
+    potential_file = args.potential_file
+    dataset_filename = args.dataset
+    batch_size_option = args.batch_size
+    gamma_tolerance = args.gamma_tolerance
+    maxvol_iters = args.maxvol_iters
+    maxvol_refinement = args.maxvol_refinement
+    mem_lim_option = args.memory_limit
+    is_full = args.full
+    error_based_threshold = args.error_based_threshold
+    all_atoms = args.all_atoms
+    verbose = not args.not_verbose
+    query = args.query
 
     mem_lim = compute_mem_limit(mem_lim_option)
 
     data_path = os.environ.get("PACEMAKERDATAPATH", "")
     if data_path:
         if verbose:
-            log.info("Data path set to $PACEMAKERDATAPATH = {}".format(data_path))
+            log.info(f"Data path set to $PACEMAKERDATAPATH = {data_path}")
     if isinstance(dataset_filename, list):
         df = load_datasets(dataset_filename, data_path, verbose)
     else:
-        raise ValueError(
-            "Unrecognized --dataset (-d) argument: {}".format(dataset_filename)
-        )
+        raise ValueError(f"Unrecognized --dataset (-d) argument: {dataset_filename}")
 
     if verbose:
-        log.info("Total number of structures: {}".format(len(df)))
+        log.info(f"Total number of structures: {len(df)}")
 
     if query is None and "name" in df.columns:
         size_before = len(df)
@@ -166,9 +177,9 @@ def main():
             log.info(f"Applying query ``{query}``")
         df = df.query(query).reset_index(drop=True)
         if verbose:
-            log.info("Total number of structures after query: {}".format(len(df)))
+            log.info(f"Total number of structures after query: {len(df)}")
     if verbose:
-        log.info("Potential file: {}".format(potential_file))
+        log.info(f"Potential file: {potential_file}")
 
     bconf = BBasisConfiguration(potential_file)
 
@@ -176,8 +187,7 @@ def main():
     nfuncs = compute_number_of_functions(bbasis)
     if is_full:
         n_projections = [
-            p * bbasis.map_embedding_specifications[st].ndensity
-            for st, p in enumerate(nfuncs)
+            p * bbasis.map_embedding_specifications[st].ndensity for st, p in enumerate(nfuncs)
         ]
     else:  # linear
         n_projections = nfuncs
@@ -310,22 +320,15 @@ def main():
                 log.info("Select atomic environments with force error below threshold")
             if error_based_threshold == 0:
                 if verbose:
-                    log.info(
-                        "Automatic force error threshold determination(Q3+1.5*IQR)"
-                    )
+                    log.info("Automatic force error threshold determination(Q3+1.5*IQR)")
             else:
                 if verbose:
-                    log.info(
-                        "Force error threshold: {:.3f} eV/A".format(
-                            error_based_threshold
-                        )
-                    )
+                    log.info(f"Force error threshold: {error_based_threshold:.3f} eV/A")
             ref_forces_dict = extract_reference_forces_dict(
                 df["ase_atoms"], df["forces"], elements_to_index_map
             )
 
             A0_projections_cropped_dict = {}
-            outlier_struct_ind_dict = {}
             sel_mask_dict = {}
             for symb, st in elements_to_index_map.items():
                 dforces = ref_forces_dict[st] - forces_dict[st]
@@ -349,27 +352,15 @@ def main():
                 f_rmse_after = np.sqrt(np.mean(dforces_norm[sel_mask] ** 2))
 
                 if verbose:
-                    log.info("\tElement: {}, specie type: {}".format(symb, st))
-                    log.info(
-                        "\t\tForce error upper bound: {:.3f} meV/A".format(
-                            1e3 * upper_bound
-                        )
-                    )
+                    log.info(f"\tElement: {symb}, specie type: {st}")
+                    log.info(f"\t\tForce error upper bound: {1e3 * upper_bound:.3f} meV/A")
                     log.info(
                         "\t\tNumber/fraction of selected atoms: {} ({:.1f}%)".format(
                             np.sum(sel_mask), 1e2 * np.mean(sel_mask)
                         )
                     )
-                    log.info(
-                        "\t\tForce RMSE (before): {:.3f} meV/A".format(
-                            1e3 * f_rmse_before
-                        )
-                    )
-                    log.info(
-                        "\t\tForce RMSE (after) : {:.3f} meV/A".format(
-                            1e3 * f_rmse_after
-                        )
-                    )
+                    log.info(f"\t\tForce RMSE (before): {1e3 * f_rmse_before:.3f} meV/A")
+                    log.info(f"\t\tForce RMSE (after) : {1e3 * f_rmse_after:.3f} meV/A")
                 A0_projections_cropped_dict[st] = A0_proj_dict[st][sel_mask]
 
             A0_proj_dict = A0_projections_cropped_dict
@@ -394,15 +385,9 @@ def main():
                         elements_name[st], AS_inv.shape, gamma_max[st]
                     )
                 )
-            log.info(
-                "Saving Active Set Inversion (ASI) to {}".format(
-                    active_set_inv_filename
-                )
-            )
+            log.info(f"Saving Active Set Inversion (ASI) to {active_set_inv_filename}")
         with open(active_set_inv_filename, "wb") as f:
-            np.savez(
-                f, **{elements_name[st]: v for st, v in A_active_inverse_set.items()}
-            )
+            np.savez(f, **{elements_name[st]: v for st, v in A_active_inverse_set.items()})
         if verbose:
             log.info(
                 "Saving  done to {} ({})".format(
@@ -413,7 +398,7 @@ def main():
         # multiple round maxvol
         if verbose:
             log.info("Approximated MaxVol by batches")
-            log.info("Batch size: {}".format(batch_size))
+            log.info(f"Batch size: {batch_size}")
         if not all_atoms:
             log.error(
                 "WARNING! Error-based selection of atoms in batch mode is not implemented. Please use --all-atoms option"
@@ -421,7 +406,7 @@ def main():
             sys.exit(1)
         n_batches = len(atomic_env_list) // batch_size
         if verbose:
-            log.info("Number of batches: {}".format(n_batches))
+            log.info(f"Number of batches: {n_batches}")
 
         if verbose:
             log.info("Compute approximate active set (using batched MaxVol algorithm)")
@@ -448,11 +433,7 @@ def main():
                     )
                 )
         if verbose:
-            log.info(
-                "Saving Active Set Inversion (ASI) to {}".format(
-                    active_set_inv_filename
-                )
-            )
+            log.info(f"Saving Active Set Inversion (ASI) to {active_set_inv_filename}")
         save_active_inverse_set(
             active_set_inv_filename, A_active_inverse_set, elements_name=elements_name
         )
