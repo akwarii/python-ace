@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import getpass
 import glob
 import importlib.resources
@@ -8,7 +9,6 @@ import re
 import shutil
 import socket
 import sys
-from argparse import SUPPRESS, ArgumentParser, Namespace
 from pathlib import Path
 from shutil import copyfile
 
@@ -63,8 +63,8 @@ FILES_TO_REMOVE = [
 DEFAULT_SEED = 42
 
 
-def build_parser() -> ArgumentParser:
-    parser = ArgumentParser(
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
         prog="pacemaker",
         description=f"Fitting utility for atomic cluster expansion potentials.\nversion: {__version__}",
     )
@@ -95,21 +95,21 @@ def build_parser() -> ArgumentParser:
         "--potential",
         help="Path to the input potential YAML file, overrides 'potential' section in the input file",
         type=str,
-        default=SUPPRESS,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "-ip",
         "--initial-potential",
         help="Path to the initial potential YAML file, overrides 'potential::initial_potential' section in the input file",
         type=str,
-        default=SUPPRESS,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "-d",
         "--data",
         help="Path to the data file, overrides 'YAML:fit:filename' section in the input file",
         type=str,
-        default=SUPPRESS,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "-l",
@@ -247,18 +247,13 @@ def generate_template_input() -> None:
             print("ERROR! No `ase_atoms` column found")
             sys.exit(1)
     if "energy_corrected" not in df.columns:
-        print(
-            f"No corrected cohesive energy (`energy_corrected` column)  is found in dataset {train_filename}"
-        )
+        print(f"`energy_corrected` column not found in dataset {train_filename}")
         resp = (
-            input(
-                "Do you want to use `energy` column as `energy_corrected`? (yes/no/default-no): "
-            )
-            or "no"
+            input("Do you want to use the `energy` column instead? (yes/no/default-no): ") or "no"
         )
         if resp == "yes":
             df["energy_corrected"] = df["energy"]
-            print(f"Saving upgraded dataset into {train_filename}...", end="")
+            print(f"Saving updated dataset into {train_filename}...", end="")
             df.to_pickle(train_filename, compression="gzip")
             print("done")
 
@@ -275,7 +270,6 @@ def generate_template_input() -> None:
     print("Cutoff: ", cutoff)
 
     # weighting scheme
-    default_energy_based_weighting = "{ type: EnergyBasedWeightingPolicy, DElow: 1.0, DEup: 10.0, DFup: 50.0, DE: 1.0, DF: 1.0, wlow: 0.75, energy: convex_hull, reftype: all,seed: 42}"
     weighting = None
     while True:
         weighting_inp = (
@@ -285,7 +279,7 @@ def generate_template_input() -> None:
         if weighting_inp in ["uniform", "energy"]:
             break
     if weighting_inp == "energy":
-        weighting = default_energy_based_weighting
+        weighting = "{ type: EnergyBasedWeightingPolicy, DElow: 1.0, DEup: 10.0, DFup: 50.0, DE: 1.0, DF: 1.0, wlow: 0.75, energy: convex_hull, reftype: all,seed: 42}"
         print("Use EnergyBasedWeightingPolicy: ", weighting)
     else:
         weighting = None
@@ -366,7 +360,9 @@ def predict_and_save(
     return pred_data
 
 
-def make_predictions(args: Namespace, general_fit: GeneralACEFit, backend_config: dict) -> None:
+def make_predictions(
+    args: argparse.Namespace, general_fit: GeneralACEFit, backend_config: dict
+) -> None:
     logger.info("Making predictions")
 
     # if fit was not done - just take target_bbasisconfig
@@ -438,7 +434,7 @@ def main() -> None:
 
     yaml_config = load_yaml_config(args.input)
 
-    # ? unsure about why this is checked since cutoff is never used
+    # ??? unsure about why this is checked since cutoff is never used
     if "cutoff" not in yaml_config:
         logger.error("No 'cutoff' provided in YAML file, please specify it")
         raise ValueError("No 'cutoff' provided in YAML file, please specify it")
@@ -473,10 +469,10 @@ def main() -> None:
 
     evaluator_name = backend_config.get("evaluator", "pyace")
     if "evaluator" not in backend_config:
-        backend_config["evaluator"] = "pyace"  # we need to add it to the config
+        backend_config["evaluator"] = "pyace"
         logger.info("Couldn't find evaluator ('pyace' or 'tensorpot').")
         logger.info(
-            f"Default evaluator `{evaluator_name}` would be used, otherwise please specify in YAML:backend:evaluator or as -b <evaluator>"
+            f"Default evaluator `{evaluator_name}` would be used, otherwise please specify in YAML:backend:evaluator"
         )
 
     # potential section
