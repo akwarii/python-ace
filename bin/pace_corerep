@@ -71,10 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
     required.add_argument(
         "-d",
         "--dataset",
-        action="append",
-        help="Path(s) to dataset file(s) for data augmentation, e.g., -d filename.pckl.gzip [-d filename2.pckl.gzip].",
         type=str,
+        nargs="+",
         required=True,
+        help="Path(s) to dataset file(s). Example: -d filename.pckl.gzip [-d filename2.pckl.gzip].",
     )
     required.add_argument(
         "-a",
