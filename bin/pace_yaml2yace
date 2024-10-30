@@ -1,7 +1,12 @@
 #!/usr/bin/env python
+import logging
 from argparse import ArgumentParser
 
 from pyace import ACEBBasisSet
+
+LOG_FMT = "%(asctime)s %(levelname).1s - %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOG_FMT, datefmt="%Y/%m/%d %H:%M:%S")
+logger = logging.getLogger()
 
 
 def build_parser() -> ArgumentParser:
@@ -44,11 +49,11 @@ def main() -> None:
         else:
             actual_output_ace_filename = output_ace_filename
 
-        print(f"Loading B-basis from '{input_yaml_filename}'")
+        logger.info(f"Loading B-basis from '{input_yaml_filename}'")
         bbasis = ACEBBasisSet(input_yaml_filename)
-        print("Converting to Ctilde-basis")
+        logger.info("Converting to Ctilde-basis")
         cbasis = bbasis.to_ACECTildeBasisSet()
-        print(f"Saving Ctilde-basis to '{actual_output_ace_filename}'")
+        logger.info(f"Saving Ctilde-basis to '{actual_output_ace_filename}'")
         cbasis.save_yaml(actual_output_ace_filename)
 
 
