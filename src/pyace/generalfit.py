@@ -1,31 +1,46 @@
 import gc
 import json
 import logging
-
+from collections.abc import Callable
 from datetime import datetime
 from functools import partial
-from typing import Union, Dict, List, Callable, Tuple
 
 import numpy as np
 import pandas as pd
 
 import pyace
+from pyace.atomicenvironment import calculate_minimal_nn_distance_per_bond
 from pyace.basis import ACEBBasisSet, BBasisConfiguration
 from pyace.basisextension import construct_bbasisconfiguration, get_actual_ladder_step
-from pyace.multispecies_basisextension import (
-    extend_multispecies_basis,
-    expand_trainable_parameters,
-    compute_bbasisset_train_mask,
-    clean_bbasisconfig,
-    reset_bbasisconfig,
+from pyace.const import (
+    FIT_FIT_CYCLES_KW,
+    FIT_LADDER_STEP_KW,
+    FIT_LADDER_TYPE_KW,
+    FIT_LOSS_KW,
+    FIT_NITER_KW,
+    FIT_NOISE_ABS_SIGMA,
+    FIT_NOISE_REL_SIGMA,
+    FIT_OPTIMIZER_KW,
+    FIT_OPTIONS_KW,
+    FIT_WEIGHTING_KW,
+    METADATA_STARTTIME_KW,
+    METADATA_USER_KW,
+    POTENTIAL_INITIAL_POTENTIAL_KW,
+    REFERENCE_ENERGY,
+    TARGET_POTENTIAL_YAML,
 )
-from pyace.const import *
 from pyace.fitadapter import FitBackendAdapter
-from pyace.preparedata import ACEDataset
 from pyace.lossfuncspec import LossFunctionSpecification
 from pyace.metrics_aggregator import MetricsAggregator
+from pyace.multispecies_basisextension import (
+    clean_bbasisconfig,
+    compute_bbasisset_train_mask,
+    expand_trainable_parameters,
+    extend_multispecies_basis,
+    reset_bbasisconfig,
+)
+from pyace.preparedata import ACEDataset
 from pyace.utils.utils import complement_min_dist_dict
-from pyace.atomicenvironment import calculate_minimal_nn_distance_per_bond
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -43,7 +58,7 @@ def get_username():
             import getpass
 
             __username = getpass.getuser()
-            log.info("User name automatically identified: {}".format(__username))
+            log.info(f"User name automatically identified: {__username}")
             return __username
         except ImportError:
             log.info("Couldn't automatically identify user name")
@@ -108,7 +123,7 @@ def get_initial_potential(start_potential):
         for pot in start_potential:
             if isinstance(pot, str):
                 conf = BBasisConfiguration(pot)
-                log.info("Initial potential {} is loaded from {}".format(conf, pot))
+                log.info(f"Initial potential {conf} is loaded from {pot}")
             elif isinstance(pot, BBasisConfiguration):
                 conf = pot
             else:
@@ -138,12 +153,10 @@ def save_dataset(dataframe, fname):
     columns_to_drop = ["tp_atoms", "atomic_env"]
     fitting_data_columns = dataframe.columns
 
-    columns_to_save = [
-        col for col in fitting_data_columns if col not in columns_to_drop
-    ]
+    columns_to_save = [col for col in fitting_data_columns if col not in columns_to_drop]
 
     dataframe[columns_to_save].to_pickle(fname, compression="gzip", protocol=4)
-    log.info("Dataset saved into {}".format(fname))
+    log.info(f"Dataset saved into {fname}")
 
 
 class TestLossChangeTooSmallException(StopIteration):
@@ -167,10 +180,10 @@ class GeneralACEFit:
 
     def __init__(
         self,
-        potential_config: Union[Dict, str, BBasisConfiguration, ACEBBasisSet],
-        fit_config: Dict,
-        data_config: Union[Dict, pd.DataFrame],
-        backend_config: Dict,
+        potential_config: dict | str | BBasisConfiguration | ACEBBasisSet,
+        fit_config: dict,
+        data_config: dict | pd.DataFrame,
+        backend_config: dict,
         cutoff=None,
         seed=None,
         callbacks=None,
@@ -178,7 +191,7 @@ class GeneralACEFit:
         self.early_stopping_occured = None
         self.seed = seed
         if self.seed is not None:
-            log.info("Set numpy random seed to {}".format(self.seed))
+            log.info(f"Set numpy random seed to {self.seed}")
             np.random.seed(self.seed)
 
         self.callbacks = [save_interim_potential_callback]
@@ -187,17 +200,17 @@ class GeneralACEFit:
                 for c in callbacks:
                     if isinstance(c, Callable):
                         self.callbacks.append(c)
-                        log.info("{} callback added".format(c))
+                        log.info(f"{c} callback added")
                     elif isinstance(c, str):
                         log.info("")
                         c = active_import(c)
                         self.callbacks.append(c)
-                        log.info("{} callback added".format(c))
+                        log.info(f"{c} callback added")
             else:
                 raise ValueError(
                     "'callbacks' should be list/tuple of importable function name or function with signature: callback"
                     + "(coeffs, bbasisconfig: BBasisConfiguration, current_fit_cycle: int, current_ladder_step: int). "
-                    + "But got: {}".format(callbacks)
+                    + f"But got: {callbacks}"
                 )
 
         self.current_fit_iteration = 0
@@ -221,15 +234,11 @@ class GeneralACEFit:
                 self.ladder_scheme = True
                 log.info("Ladder-scheme fitting is ON")
             elif FIT_LADDER_STEP_KW in fit_config:
-                self.initial_bbasisconfig = construct_bbasisconfiguration(
-                    potential_config
-                )
+                self.initial_bbasisconfig = construct_bbasisconfiguration(potential_config)
                 clean_bbasisconfig(self.initial_bbasisconfig)
                 self.ladder_scheme = True
                 log.info("Ladder-scheme fitting is ON")
-                log.info(
-                    "Initial potential is NOT provided, starting from empty potential"
-                )
+                log.info("Initial potential is NOT provided, starting from empty potential")
             # initialize target_bbasisconfig
             # construct potential from initial_bbasisconfig also (copy the blocks if they are not presented)
             if "filename" in potential_config:
@@ -253,8 +262,7 @@ class GeneralACEFit:
                 )
                 if (
                     "functions" in potential_config
-                    and "number_of_functions_per_element"
-                    in potential_config["functions"]
+                    and "number_of_functions_per_element" in potential_config["functions"]
                 ):
                     num_block = len(self.target_bbasisconfig.funcspecs_blocks)
                     number_of_functions_per_element = potential_config["functions"][
@@ -319,9 +327,7 @@ class GeneralACEFit:
             if self.initial_bbasisconfig is None:
                 self.initial_bbasisconfig = self.target_bbasisconfig.copy()
                 clean_bbasisconfig(self.initial_bbasisconfig)
-                log.info(
-                    "Initial potential is NOT provided, starting from empty potential"
-                )
+                log.info("Initial potential is NOT provided, starting from empty potential")
             self.ladder_scheme = True
             log.info("Ladder-scheme fitting is ON")
 
@@ -340,7 +346,7 @@ class GeneralACEFit:
         if self.ladder_scheme:
             if FIT_LADDER_TYPE_KW in fit_config:
                 self.ladder_type = str(fit_config[FIT_LADDER_TYPE_KW])
-            log.info("Ladder_type: {} is selected".format(self.ladder_type))
+            log.info(f"Ladder_type: {self.ladder_type} is selected")
 
         self.fit_config = fit_config
         if FIT_OPTIMIZER_KW not in self.fit_config:
@@ -359,11 +365,7 @@ class GeneralACEFit:
             )
 
         if FIT_OPTIONS_KW in self.fit_config:
-            log.info(
-                "optimizer options are provided: '{}'".format(
-                    self.fit_config[FIT_OPTIONS_KW]
-                )
-            )
+            log.info(f"optimizer options are provided: '{self.fit_config[FIT_OPTIONS_KW]}'")
 
         trainable_parameters = self.fit_config.get("trainable_parameters", [])
         # convert fit_blocks to indices of the blocks to fit
@@ -376,9 +378,7 @@ class GeneralACEFit:
         self.weighting_policy_spec = self.fit_config.get(FIT_WEIGHTING_KW)
         self.display_step = backend_config.get("display_step", 20)
         if self.ladder_scheme:
-            self.metrics_aggregator = MetricsAggregator(
-                extended_display_step=self.display_step
-            )
+            self.metrics_aggregator = MetricsAggregator(extended_display_step=self.display_step)
         else:
             self.metrics_aggregator = MetricsAggregator(
                 extended_display_step=self.display_step, ladder_metrics_filename=None
@@ -391,7 +391,7 @@ class GeneralACEFit:
         self.evaluator_name = self.fit_backend.evaluator_name
         versions_dict = self.fit_backend.get_evaluator_version_dict()
         for k, v in versions_dict.items():
-            log.info("{}: {}".format(k, v))
+            log.info(f"{k}: {v}")
         set_general_metadata(self.target_bbasisconfig, **versions_dict)
 
         self.fitting_data = None
@@ -442,9 +442,7 @@ class GeneralACEFit:
         loss_spec_dict = self.fit_config.get(FIT_LOSS_KW, {})
         if loss_spec_dict.get("kappa") == "auto":
             e_std = self.fitting_data["energy_corrected_per_atom"].std()
-            f_std = np.std(
-                np.linalg.norm(np.vstack(self.fitting_data["forces"]), axis=1)
-            )
+            f_std = np.std(np.linalg.norm(np.vstack(self.fitting_data["forces"]), axis=1))
             kappa_auto = e_std**2 / (e_std**2 + f_std**2)
             loss_spec_dict["kappa"] = kappa_auto
             log.info(
@@ -460,24 +458,16 @@ class GeneralACEFit:
         self.test_loss_list = []
         self.early_stopping_occured = False
         self.early_stopping_patience = fit_config.get("early_stopping_patience", 200)
-        self.min_relative_train_loss_per_iter = fit_config.get(
-            "min_relative_train_loss_per_iter"
-        )
-        self.min_relative_test_loss_per_iter = fit_config.get(
-            "min_relative_test_loss_per_iter"
-        )
+        self.min_relative_train_loss_per_iter = fit_config.get("min_relative_train_loss_per_iter")
+        self.min_relative_test_loss_per_iter = fit_config.get("min_relative_test_loss_per_iter")
         if self.min_relative_train_loss_per_iter:
-            self.min_relative_train_loss_per_iter = -abs(
-                self.min_relative_train_loss_per_iter
-            )
+            self.min_relative_train_loss_per_iter = -abs(self.min_relative_train_loss_per_iter)
             log.info(
                 f"Slowest relative change of TRAIN loss is set to {self.min_relative_train_loss_per_iter :+1.2e}/iter, "
                 + f"patience = {self.early_stopping_patience} iters"
             )
         if self.min_relative_test_loss_per_iter:
-            self.min_relative_test_loss_per_iter = -abs(
-                self.min_relative_test_loss_per_iter
-            )
+            self.min_relative_test_loss_per_iter = -abs(self.min_relative_test_loss_per_iter)
             log.info(
                 f"Slowest relative change of TEST loss is set to {self.min_relative_test_loss_per_iter :+1.2e}/iter, "
                 + f"patience = {self.early_stopping_patience} iters"
@@ -487,9 +477,7 @@ class GeneralACEFit:
         # automatic repulsion selection
         if "repulsion" in self.fit_config and self.fit_config["repulsion"] == "auto":
             log.info("Auto core-repulsion estimation. Minimal distance calculation...")
-            min_distance_per_bond = calculate_minimal_nn_distance_per_bond(
-                self.fitting_data
-            )
+            min_distance_per_bond = calculate_minimal_nn_distance_per_bond(self.fitting_data)
             basis = ACEBBasisSet(basis_conf)
 
             min_distance_per_bond = complement_min_dist_dict(
@@ -498,7 +486,7 @@ class GeneralACEFit:
                 basis.elements_name,
                 verbose=True,
             )
-            log.info("Minimal distance per bonds = {} A ".format(min_distance_per_bond))
+            log.info(f"Minimal distance per bonds = {min_distance_per_bond} A ")
             setup_zbl_inner_core_repulsion(basis_conf, min_distance_per_bond)
             log.info("Inner cutoff / core-repulsion initialized with ZBL")
 
@@ -537,11 +525,7 @@ class GeneralACEFit:
         return d_rel_loss_d_step
 
     def log_d_rel_loss(self, iter_num, mode):
-        if (
-            iter_num > 0
-            and iter_num % self.display_step == 0
-            and not self.early_stopping_occured
-        ):
+        if iter_num > 0 and iter_num % self.display_step == 0 and not self.early_stopping_occured:
             iter_step = self.display_step if mode == "test" else 1
             loss_list = self.get_loss_list(mode)
             d_rel_loss_d_step = self.compute_d_rel_loss_d_step(loss_list, mode)
@@ -562,15 +546,13 @@ class GeneralACEFit:
     def detect_early_stopping(self, mode):
         loss_list = self.get_loss_list(mode)
         if self.early_stopping_occured:
-            # early stopping already occured
+            # early stopping already occurred
             return
 
         iter_step = self.display_step if mode == "test" else 1
         min_loss_depth = int(np.ceil(self.early_stopping_patience / iter_step))
 
-        if (
-            len(loss_list) - 1 < min_loss_depth
-        ):  # -1 because test loss is written at it=0
+        if len(loss_list) - 1 < min_loss_depth:  # -1 because test loss is written at it=0
             # trajectory is not long enough
             return
 
@@ -634,11 +616,11 @@ class GeneralACEFit:
         self.current_ladder_step = 0
         while True:  # ladder loop
             prev_func_num = current_bbasisconfig.total_number_of_functions
-            log.info("Current basis set size: {} B-functions".format(prev_func_num))
+            log.info(f"Current basis set size: {prev_func_num} B-functions")
             ladder_step = get_actual_ladder_step(
                 ladder_step_param, prev_func_num, total_number_of_funcs
             )
-            log.info("Ladder step size: {}".format(ladder_step))
+            log.info(f"Ladder step size: {ladder_step}")
             # TODO: extend basis only for those blocks, where "funcs" is trainable
             current_bbasisconfig, is_extended = extend_multispecies_basis(
                 current_bbasisconfig,
@@ -648,7 +630,7 @@ class GeneralACEFit:
                 return_is_extended=True,
             )
             new_func_num = current_bbasisconfig.total_number_of_functions
-            log.info("Extended basis set size: {} B-functions".format(new_func_num))
+            log.info(f"Extended basis set size: {new_func_num} B-functions")
             current_bbasisconfig.save("current_extended_potential.yaml")
             log.info("Extended basis set saved to current_extended_potential.yaml")
             if not is_extended:
@@ -659,14 +641,10 @@ class GeneralACEFit:
 
             if "_fit_cycles" in current_bbasisconfig.metadata:
                 del current_bbasisconfig.metadata["_fit_cycles"]
-            log.debug("Update metadata: {}".format(current_bbasisconfig.metadata))
+            log.debug(f"Update metadata: {current_bbasisconfig.metadata}")
 
-            self.fit_backend.last_fit_metric_data[
-                "ladder_step"
-            ] = self.current_ladder_step
-            self.metrics_aggregator.ladder_step_callback(
-                self.fit_backend.last_fit_metric_data
-            )
+            self.fit_backend.last_fit_metric_data["ladder_step"] = self.current_ladder_step
+            self.metrics_aggregator.ladder_step_callback(self.fit_backend.last_fit_metric_data)
 
             last_test_metric_data = self.fit_backend.last_test_metric_data
             if last_test_metric_data:
@@ -674,14 +652,10 @@ class GeneralACEFit:
                 self.metrics_aggregator.test_ladder_step_callback(last_test_metric_data)
 
             # save ladder potential
-            ladder_final_potential_filename = (
-                "interim_potential_ladder_step_{}.yaml".format(self.current_ladder_step)
+            ladder_final_potential_filename = "interim_potential_ladder_step_{}.yaml".format(
+                self.current_ladder_step
             )
-            log.info(
-                "Save current ladder step potential to {}".format(
-                    ladder_final_potential_filename
-                )
-            )
+            log.info(f"Save current ladder step potential to {ladder_final_potential_filename}")
             save_interim_potential(
                 current_bbasisconfig, potential_filename=ladder_final_potential_filename
             )
@@ -697,14 +671,10 @@ class GeneralACEFit:
         noise_rel_sigma = float(self.fit_config.get(FIT_NOISE_REL_SIGMA, 0))
         noise_abs_sigma = float(self.fit_config.get(FIT_NOISE_ABS_SIGMA, 0))
 
-        randomize_func_coeffs_abs_sigma = float(
-            self.fit_config.get("randomize_func_coeffs", 0)
-        )
+        randomize_func_coeffs_abs_sigma = float(self.fit_config.get("randomize_func_coeffs", 0))
 
         if "_" + FIT_FIT_CYCLES_KW in current_bbasisconfig.metadata:
-            finished_fit_cycles = int(
-                current_bbasisconfig.metadata["_" + FIT_FIT_CYCLES_KW]
-            )
+            finished_fit_cycles = int(current_bbasisconfig.metadata["_" + FIT_FIT_CYCLES_KW])
         else:
             finished_fit_cycles = 0
 
@@ -720,11 +690,7 @@ class GeneralACEFit:
         fitting_attempts_list = []
         while finished_fit_cycles < fit_cycles:
             self.current_fit_cycle = finished_fit_cycles
-            log.info(
-                "Number of fit attempts: {}/{}".format(
-                    self.current_fit_cycle, fit_cycles
-                )
-            )
+            log.info(f"Number of fit attempts: {self.current_fit_cycle}/{fit_cycles}")
             num_of_functions = current_bbasisconfig.total_number_of_functions
             num_of_parameters = len(current_bbasisconfig.get_all_coeffs())
             log.info(
@@ -750,12 +716,8 @@ class GeneralACEFit:
 
             log.info("Fitting cycle finished, final statistic:")
             self.fit_backend.last_fit_metric_data["cycle_step"] = self.current_fit_cycle
-            self.fit_backend.last_fit_metric_data[
-                "ladder_step"
-            ] = self.current_ladder_step
-            self.metrics_aggregator.cycle_step_callback(
-                self.fit_backend.last_fit_metric_data
-            )
+            self.fit_backend.last_fit_metric_data["ladder_step"] = self.current_ladder_step
+            self.metrics_aggregator.cycle_step_callback(self.fit_backend.last_fit_metric_data)
 
             last_test_metric_data = self.fit_backend.last_test_metric_data
             if last_test_metric_data:
@@ -764,25 +726,15 @@ class GeneralACEFit:
                 self.metrics_aggregator.test_cycle_step_callback(last_test_metric_data)
 
             if randomize_func_coeffs_abs_sigma > 0:  # randomize func coeffs mode
-                ens_pot_fname = "ensemble_potential_{}.yaml".format(
-                    self.current_fit_cycle
-                )
+                ens_pot_fname = f"ensemble_potential_{self.current_fit_cycle}.yaml"
                 current_bbasisconfig.save(ens_pot_fname)
-                log.info("Ensemble potential is saved to {}".format(ens_pot_fname))
+                log.info(f"Ensemble potential is saved to {ens_pot_fname}")
 
             finished_fit_cycles = self.current_fit_cycle + 1
 
-            current_bbasisconfig.metadata["_" + FIT_FIT_CYCLES_KW] = str(
-                finished_fit_cycles
-            )
-            current_bbasisconfig.metadata["_" + FIT_LOSS_KW] = str(
-                self.fit_backend.res_opt.fun
-            )
-            log.debug(
-                "Update current_bbasisconfig.metadata = {}".format(
-                    current_bbasisconfig.metadata
-                )
-            )
+            current_bbasisconfig.metadata["_" + FIT_FIT_CYCLES_KW] = str(finished_fit_cycles)
+            current_bbasisconfig.metadata["_" + FIT_LOSS_KW] = str(self.fit_backend.res_opt.fun)
+            log.debug(f"Update current_bbasisconfig.metadata = {current_bbasisconfig.metadata}")
 
             # save also current fitting_metric_data
             last_fit_metric_data = self.fit_backend.last_fit_metric_data
@@ -815,9 +767,7 @@ class GeneralACEFit:
                     )
                 )
             elif (
-                finished_fit_cycles < fit_cycles
-                and (noise_rel_sigma > 0)
-                or (noise_abs_sigma > 0)
+                finished_fit_cycles < fit_cycles and (noise_rel_sigma > 0) or (noise_abs_sigma > 0)
             ):
                 current_bbasisconfig = self.apply_gaussian_noise(
                     current_bbasisconfig,
@@ -828,7 +778,7 @@ class GeneralACEFit:
 
         # chose the best fit attempt among fitting_attempts_list
         best_fitting_attempts_ind = np.argmin([v[0] for v in fitting_attempts_list])
-        log.info("Best fitting attempt is #{}".format(best_fitting_attempts_ind + 1))
+        log.info(f"Best fitting attempt is #{best_fitting_attempts_ind + 1}")
         current_best_bbasisconfig = fitting_attempts_list[best_fitting_attempts_ind][1]
         # restore the best fitting metric data
         best_fitting_metric_data = fitting_attempts_list[best_fitting_attempts_ind][2]
@@ -852,9 +802,7 @@ class GeneralACEFit:
         noise_rel_sigma,
     ):
         cur_bbasis = ACEBBasisSet(current_bbasisconfig)
-        trainable_mask = compute_bbasisset_train_mask(
-            cur_bbasis, trainable_parameters_dict
-        )
+        trainable_mask = compute_bbasisset_train_mask(cur_bbasis, trainable_parameters_dict)
         all_coeffs = np.array(cur_bbasis.all_coeffs)
         all_trainable_coeffs = all_coeffs[trainable_mask]
         if noise_rel_sigma > 0:
@@ -863,18 +811,14 @@ class GeneralACEFit:
                     noise_rel_sigma
                 )
             )
-            noisy_all_coeffs = apply_noise(
-                all_trainable_coeffs, noise_rel_sigma, relative=True
-            )
+            noisy_all_coeffs = apply_noise(all_trainable_coeffs, noise_rel_sigma, relative=True)
         elif noise_abs_sigma > 0:
             log.info(
                 "Applying Gaussian noise with sigma = {:>1.4e} to all trainable parameters".format(
                     noise_abs_sigma
                 )
             )
-            noisy_all_coeffs = apply_noise(
-                all_trainable_coeffs, noise_abs_sigma, relative=False
-            )
+            noisy_all_coeffs = apply_noise(all_trainable_coeffs, noise_abs_sigma, relative=False)
         all_coeffs[trainable_mask] = noisy_all_coeffs
         cur_bbasis.all_coeffs = all_coeffs
         current_bbasisconfig = cur_bbasis.to_BBasisConfiguration()
@@ -902,15 +846,13 @@ class GeneralACEFit:
         current_bbasisconfig = cur_bbasis.to_BBasisConfiguration()
         return current_bbasisconfig
 
-    def save_optimized_potential(
-        self, potential_filename: str = "output_potential.yaml"
-    ):
+    def save_optimized_potential(self, potential_filename: str = "output_potential.yaml"):
         if "_" + FIT_FIT_CYCLES_KW in self.target_bbasisconfig.metadata:
             del self.target_bbasisconfig.metadata["_" + FIT_FIT_CYCLES_KW]
 
-        log.debug("Update metadata: {}".format(self.target_bbasisconfig.metadata))
+        log.debug(f"Update metadata: {self.target_bbasisconfig.metadata}")
         self.target_bbasisconfig.save(potential_filename)
-        log.info("Final potential is saved to {}".format(potential_filename))
+        log.info(f"Final potential is saved to {potential_filename}")
 
     def callback_hook(
         self,
@@ -936,8 +878,10 @@ class GeneralACEFit:
 
 
 def apply_noise(
-    all_coeffs: Union[np.array, List], sigma: float, relative: bool = True
-) -> np.array:
+    all_coeffs: np.ndarray | list,
+    sigma: float,
+    relative: bool = True,
+) -> np.ndarray:
     coeffs = np.array(all_coeffs)
     noise = np.random.randn(*coeffs.shape)
     if relative:
@@ -962,7 +906,8 @@ def set_general_metadata(bbasisconfig: BBasisConfiguration, **kwargs) -> None:
 
 
 def safely_update_bbasisconfiguration_coefficients(
-    coeffs: np.array, config: BBasisConfiguration = None
+    coeffs: np.ndarray,
+    config: BBasisConfiguration = None,
 ) -> None:
     current_coeffs = config.get_all_coeffs()
     for i, c in enumerate(coeffs):
@@ -982,7 +927,7 @@ def save_interim_potential(
     basis_config.metadata["intermediate_time"] = str(datetime.now())
     basis_config.save(potential_filename)
     if verbose:
-        log.info("Intermediate potential saved in {}".format(potential_filename))
+        log.info(f"Intermediate potential saved in {potential_filename}")
 
 
 def save_interim_potential_callback(
@@ -993,7 +938,7 @@ def save_interim_potential_callback(
 ):
     save_interim_potential(
         basis_config=basis_config,
-        potential_filename="interim_potential_{}.yaml".format(current_fit_cycle),
+        potential_filename=f"interim_potential_{current_fit_cycle}.yaml",
         verbose=False,
     )
 
@@ -1036,5 +981,6 @@ def plot_ef_distributions(df, suffix=""):
 
         fig.tight_layout()
         fig.savefig(suffix + "ef-distributions.png")
+
     except Exception as e:
-        log.error("Error while plotting energies/forces distributions: {}".format(e))
+        log.error(f"Error while plotting energies/forces distributions: {e}")

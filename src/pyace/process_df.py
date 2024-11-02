@@ -1,20 +1,21 @@
 import logging
-
-import pandas as pd
+from collections import Counter
 
 import numpy as np
-
-from collections import Counter, defaultdict
+import pandas as pd
 from scipy.spatial import ConvexHull
-from pyace.const import *
 
-try:
-    from tqdm import tqdm
-except ImportError:
-
-    def tqdm(seq, *args, **kwargs):
-        return seq
-
+from pyace.const import (
+    ASE_ATOMS,
+    COMP_DICT,
+    COMP_TUPLE,
+    E_CHULL_DIST_PER_ATOM,
+    E_CORRECTED_PER_ATOM_COLUMN,
+    E_FORMATION_PER_ATOM,
+    ENERGY,
+    ENERGY_CORRECTED_COL,
+    NUMBER_OF_ATOMS,
+)
 
 SINGLE_ATOM_ENERGY_DICT = {
     # energy computed with default VASP_NM settings (500eV, Gaussian smearing, sigma=0.1, min 10x10x10 A cell, single atom, NM)
@@ -115,31 +116,31 @@ SINGLE_ATOM_ENERGY_DICT = {
 }
 
 
-def compdict_to_comptuple(comp_dict):
+def compdict_to_comptuple(comp_dict: dict[str, int]) -> tuple[tuple[str, float], ...]:
     n_atoms = sum([v for v in comp_dict.values()])
     return tuple(sorted([(k, v / n_atoms) for k, v in comp_dict.items()]))
 
 
-def comptuple_to_str(comp_tuple):
-    return " ".join(("{}_{:.3f}".format(e, c) for e, c in comp_tuple))
+def comptuple_to_str(comp_tuple: tuple[tuple[str, float], ...]) -> str:
+    return " ".join((f"{e}_{c:.3f}" for e, c in comp_tuple))
 
 
 def compute_compositions(
-    df: pd.DataFrame, ase_atoms_column=ASE_ATOMS, compute_composition_tuples=True
-):
+    df: pd.DataFrame,
+    ase_atoms_column: str = ASE_ATOMS,
+    compute_composition_tuples: bool = True,
+) -> list[str]:
     """
     Generate new columns:
        'comp_dict' - composition dictionary
        'n_atom' - number of atoms
        'n_'+Elements, 'c_'+Elements - number and concentration of elements
-    """
-    df[COMP_DICT] = df[ase_atoms_column].map(
-        lambda atoms: Counter(atoms.get_chemical_symbols())
-    )
+    """  # noqa: RST306
+    df[COMP_DICT] = df[ase_atoms_column].map(lambda atoms: Counter(atoms.get_chemical_symbols()))  # type: ignore
     df[NUMBER_OF_ATOMS] = df[ase_atoms_column].map(len)
 
     if compute_composition_tuples:
-        df[COMP_TUPLE] = df[COMP_DICT].map(compdict_to_comptuple)
+        df[COMP_TUPLE] = df[COMP_DICT].map(compdict_to_comptuple)  # type: ignore
 
     elements = extract_elements(df)
 
@@ -150,7 +151,7 @@ def compute_compositions(
     return elements
 
 
-def extract_elements(df: pd.DataFrame, composition_dict_column=COMP_DICT):
+def extract_elements(df: pd.DataFrame, composition_dict_column: str = COMP_DICT) -> list[str]:
     elements_set = set()
     for cd in df[composition_dict_column]:
         elements_set.update(cd.keys())
@@ -160,11 +161,11 @@ def extract_elements(df: pd.DataFrame, composition_dict_column=COMP_DICT):
 
 def compute_formation_energy(
     df: pd.DataFrame,
-    elements=None,
-    epa_gs_dict=None,
-    energy_per_atom_column="energy_per_atom",
-    verbose=True,
-):
+    elements: list[str] | None = None,
+    epa_gs_dict: dict[str, float] | None = None,
+    energy_per_atom_column: str = "energy_per_atom",
+    verbose: bool = True,
+) -> None:
     if elements is None:
         elements = extract_elements(df)
 
@@ -194,10 +195,10 @@ def compute_formation_energy(
 # TODO: write tests
 def compute_convexhull_dist(
     df: pd.DataFrame,
-    ase_atoms_column=ASE_ATOMS,
-    energy_per_atom_column="energy_per_atom",
-    verbose=True,
-):
+    ase_atoms_column: str = ASE_ATOMS,
+    energy_per_atom_column: str = "energy_per_atom",
+    verbose: bool = True,
+) -> list[str]:
     """
     df: pd.DataFrame with ASE atoms column and energy-per-atom column
     ase_atoms_column: (str) name of ASE atoms column
@@ -210,7 +211,7 @@ def compute_convexhull_dist(
      'n_'+element, 'c_'+element - number and concentration of elements
      'e_formation_per_atom': formation energy per atom
      'e_chull_dist_per_atom': distance to convex hull
-    """
+    """  # noqa: RST306
     elements = compute_compositions(df, ase_atoms_column=ase_atoms_column)
     c_elements = ["c_" + el for el in elements]
 
@@ -220,7 +221,6 @@ def compute_convexhull_dist(
 
     # check if more than one unique compositions
     uniq_compositions = df[COMP_TUPLE].unique()
-    # df.drop(columns=["comp_tuple"], inplace=True)
 
     if len(uniq_compositions) > 1:
         if verbose:
@@ -244,26 +244,23 @@ def compute_convexhull_dist(
             p_c = p[:-1]
             p_e = p[-1]
             e_simplex_projections = []
-            for nc, ne, b, simplex in zip(
-                norms_c, norms_e, offsets, selected_simplices
-            ):
+
+            for nc, ne, b, _ in zip(norms_c, norms_e, offsets, selected_simplices):
                 if ne != 0:
                     e_simplex = (-b - np.dot(nc, p_c)) / ne
                     e_simplex_projections.append(e_simplex)
-                elif (
-                    np.abs(b + np.dot(nc, p_c)) < 2e-15
-                ):  # ne*e_simplex + b + np.dot(nc,p_c), ne==0
+
+                # ne*e_simplex + b + np.dot(nc,p_c), ne==0
+                elif np.abs(b + np.dot(nc, p_c)) < 2e-15:
                     e_simplex = p_e
                     e_simplex_projections.append(e_simplex)
 
             e_simplex_projections = np.array(e_simplex_projections)
 
             mask = e_simplex_projections < p_e + 1e-15
-
             e_simplex_projections = e_simplex_projections[mask]
 
             e_dist_to_chull = np.min(p_e - e_simplex_projections)
-
             e_chull_dist_list.append(e_dist_to_chull)
 
         e_chull_dist_list = np.array(e_chull_dist_list)
@@ -281,10 +278,10 @@ def compute_convexhull_dist(
 
 def compute_corrected_energy(
     df: pd.DataFrame,
-    esa_dict=None,
-    calculator_name="VASP_PBE_500_0.125_0.1_NM",
-    n_atoms_column=NUMBER_OF_ATOMS,
-):
+    esa_dict: dict[str, float] | None = None,
+    calculator_name: str = "VASP_PBE_500_0.125_0.1_NM",
+    n_atoms_column: str = NUMBER_OF_ATOMS,
+) -> dict[str, float]:
     elements = compute_compositions(df)
     n_elements = ["n_" + e for e in elements]
     if esa_dict is None:
@@ -301,16 +298,19 @@ def compute_corrected_energy(
 
 
 def compute_shifted_scaled_corrected_energy(
-    df: pd.DataFrame, n_atoms_column=NUMBER_OF_ATOMS
-):
+    df: pd.DataFrame,
+    n_atoms_column: str = NUMBER_OF_ATOMS,
+) -> dict[str, float]:
     elements = compute_compositions(df)
     n_elements = ["n_" + e for e in elements]
     corr_mask = ~df[ENERGY].isna()
     comp_array = df.loc[corr_mask, n_elements].values
     e_array = df.loc[corr_mask, ENERGY].values
+
     assert not np.any(np.isnan(comp_array)), "Compositions columns contain NaN"
-    assert not np.any(np.isnan(e_array)), "Energy column contain NaN"
-    esa_array = np.linalg.pinv(comp_array, rcond=1e-10) @ e_array  # solve equation
+    assert not np.any(np.isnan(e_array)), "Energy column contain NaN"  # type: ignore
+
+    esa_array = np.linalg.pinv(comp_array, rcond=1e-10) @ e_array  # type: ignore
     esa_dict = {e: esa for e, esa in zip(elements, esa_array)}
     df.loc[corr_mask, ENERGY_CORRECTED_COL] = e_array - np.dot(comp_array, esa_array)
     df[E_CORRECTED_PER_ATOM_COLUMN] = df[ENERGY_CORRECTED_COL] / df[n_atoms_column]
@@ -318,17 +318,15 @@ def compute_shifted_scaled_corrected_energy(
     def safe_get_volume_per_atom(at):
         try:
             return at.get_volume() / len(at)
-        except Exception as e:
+        except Exception:
             return 0
 
     df["volume_per_atom"] = df[ASE_ATOMS].map(safe_get_volume_per_atom)
     max_vpa = df["volume_per_atom"].max()
     e_corr_shift = 0
     if max_vpa > 0:
-        # "-", becese +=shift
-        e_corr_shift = -df[df["volume_per_atom"] >= max_vpa].iloc[0][
-            E_CORRECTED_PER_ATOM_COLUMN
-        ]
+        # "-", because +=shift
+        e_corr_shift = -df[df["volume_per_atom"] >= max_vpa].iloc[0][E_CORRECTED_PER_ATOM_COLUMN]
     else:  # max_vpa==0
         e_corr_shift = 0
 

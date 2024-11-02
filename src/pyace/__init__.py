@@ -1,50 +1,54 @@
 import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    # datefmt='%Y-%m-%d %H:%M:%S.%f'
-)
-logging.getLogger().setLevel(logging.INFO)
-
 from pyace.asecalc import PyACECalculator, PyACEEnsembleCalculator
-
 from pyace.atomicenvironment import (
     ACEAtomicEnvironment,
+    aseatoms_to_atomicenvironment,
     create_cube,
     create_linear_chain,
-    aseatoms_to_atomicenvironment,
 )
-
 from pyace.basis import (
-    BBasisFunctionSpecification,
-    BBasisConfiguration,
-    BBasisFunctionsSpecificationBlock,
     ACEBBasisFunction,
-    ACECTildeBasisFunction,
-    ACERadialFunctions,
-    ACECTildeBasisSet,
     ACEBBasisSet,
+    ACECTildeBasisFunction,
+    ACECTildeBasisSet,
+    ACERadialFunctions,
+    BBasisConfiguration,
+    BBasisFunctionSpecification,
+    BBasisFunctionsSpecificationBlock,
     Fexp,
 )
 from pyace.calculator import ACECalculator
 from pyace.coupling import (
     ACECouplingTree,
-    generate_ms_cg_list,
-    validate_ls_LS,
-    is_valid_ls_LS,
     expand_ls_LS,
+    generate_ms_cg_list,
+    is_valid_ls_LS,
+    validate_ls_LS,
 )
-from pyace.evaluator import ACECTildeEvaluator, ACEBEvaluator, get_ace_evaluator_version
+from pyace.evaluator import ACEBEvaluator, ACECTildeEvaluator, get_ace_evaluator_version
+from pyace.multispecies_basisextension import create_multispecies_basis_config
+from pyace.preparedata import (
+    ACEDataset,
+    EnergyBasedWeightingPolicy,
+    UniformWeightingPolicy,
+)
 from pyace.pyacefit import PyACEFit
-from pyace.preparedata import *
 from pyace.radial import (
+    RadialFunctionSmoothness,
     RadialFunctionsValues,
     RadialFunctionsVisualization,
-    RadialFunctionSmoothness,
 )
 
-from pyace.multispecies_basisextension import create_multispecies_basis_config
+from . import _version
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logging.getLogger().setLevel(logging.INFO)
+
+__version__ = _version.get_versions()["version"]
 
 __all__ = [
     "ACEAtomicEnvironment",
@@ -71,7 +75,6 @@ __all__ = [
     "PyACECalculator",
     "PyACEEnsembleCalculator",
     "ACEDataset",
-    "EnergyBasedWeightingPolicy",
     "Fexp",
     "get_ace_evaluator_version",
     "EnergyBasedWeightingPolicy",
@@ -81,7 +84,3 @@ __all__ = [
     "RadialFunctionSmoothness",
     "create_multispecies_basis_config",
 ]
-
-from . import _version
-
-__version__ = _version.get_versions()["version"]

@@ -1,31 +1,38 @@
 import logging
+import time
+from functools import partial
+
+import __main__
 import numpy as np
 import pandas as pd
-import time
-
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-
-from functools import partial
-from typing import Union
 from scipy.optimize import minimize
 
-from pyace.basis import ACEBBasisSet, BBasisConfiguration
-from pyace.evaluator import ACECTildeEvaluator, ACEBEvaluator
+from pyace.basis import ACEBBasisSet, ACECTildeBasisSet, BBasisConfiguration
 from pyace.calculator import ACECalculator
-from pyace.paralleldataexecutor import (
-    ParallelDataExecutor,
-    LOCAL_DATAFRAME_VARIALBE_NAME,
+from pyace.const import (
+    ATOMIC_ENV_COL,
+    ENERGY_CORRECTED_COL,
+    ENERGY_PRED_COL,
+    EWEIGHTS_COL,
+    FORCES_COL,
+    FORCES_PRED_COL,
+    FWEIGHTS_COL,
 )
-from pyace.radial import *
-from pyace.multispecies_basisextension import (
-    expand_trainable_parameters,
-    compute_bbasisset_train_mask,
-)
+from pyace.evaluator import ACEBEvaluator, ACECTildeEvaluator
 from pyace.lossfuncspec import LossFunctionSpecification
-from pyace.const import *
 from pyace.metrics_aggregator import FitMetrics, MetricsAggregator
-import __main__
+from pyace.multispecies_basisextension import (
+    compute_bbasisset_train_mask,
+    expand_trainable_parameters,
+)
+from pyace.paralleldataexecutor import (
+    LOCAL_DATAFRAME_VARIALBE_NAME,
+    ParallelDataExecutor,
+)
+from pyace.radial import RadialFunctionSmoothness, RadialFunctionsValues
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 required_structures_dataframe_columns = [
     ATOMIC_ENV_COL,
@@ -100,7 +107,7 @@ class PyACEFit:
 
     def __init__(
         self,
-        basis: Union[BBasisConfiguration] = None,
+        basis: BBasisConfiguration = None,
         structures_dataframe: pd.DataFrame = None,
         loss_spec: LossFunctionSpecification = None,
         seed=None,
@@ -180,9 +187,7 @@ class PyACEFit:
         self.trainable_params_mask = compute_bbasisset_train_mask(
             self.bbasis, self.trainable_parameters_dict
         )
-        self.trainable_params = np.array(self.bbasis.all_coeffs)[
-            self.trainable_params_mask
-        ]
+        self.trainable_params = np.array(self.bbasis.all_coeffs)[self.trainable_params_mask]
 
     @property
     def structures_dataframe(self):
@@ -203,18 +208,12 @@ class PyACEFit:
         # TODO: energies and forces weights are generated here, if columns not provided
         for col in required_structures_dataframe_columns:
             if col not in structures_dataframe.columns:
-                raise ValueError(
-                    "`structures_dataframe` doesn't contain column {}".format(col)
-                )
+                raise ValueError(f"`structures_dataframe` doesn't contain column {col}")
 
         if FORCES_COL in structures_dataframe.columns:
-            structures_dataframe[FORCES_COL] = structures_dataframe[FORCES_COL].map(
-                np.array
-            )
+            structures_dataframe[FORCES_COL] = structures_dataframe[FORCES_COL].map(np.array)
         if FWEIGHTS_COL in structures_dataframe.columns:
-            structures_dataframe[FWEIGHTS_COL] = structures_dataframe[FWEIGHTS_COL].map(
-                np.array
-            )
+            structures_dataframe[FWEIGHTS_COL] = structures_dataframe[FWEIGHTS_COL].map(np.array)
 
         # normalize_energy_forces_weights(structures_dataframe)
 
@@ -241,9 +240,7 @@ class PyACEFit:
 
         self.eval_count += 1
         t0 = time.time()
-        energy_forces_pred_df = self.predict_energy_forces(
-            params, keep_parallel_dataexecutor=True
-        )
+        energy_forces_pred_df = self.predict_energy_forces(params, keep_parallel_dataexecutor=True)
 
         total_na = self.structures_dataframe["NUMBER_OF_ATOMS"].values
         dE = (
@@ -252,8 +249,7 @@ class PyACEFit:
         ).values
         dE_per_atom = dE / total_na
         dF = (
-            self.structures_dataframe[FORCES_COL]
-            - energy_forces_pred_df[FORCES_PRED_COL]
+            self.structures_dataframe[FORCES_COL] - energy_forces_pred_df[FORCES_PRED_COL]
         ).values
 
         self.last_epa_mae = np.mean(np.abs(dE_per_atom))
@@ -273,9 +269,7 @@ class PyACEFit:
             # dEsqr = dE ** 2
             dEsqr = dE_per_atom**2
             if EWEIGHTS_COL in self.structures_dataframe.columns:
-                dEsqr = dEsqr * np.vstack(
-                    self.structures_dataframe[EWEIGHTS_COL]
-                ).reshape(
+                dEsqr = dEsqr * np.vstack(self.structures_dataframe[EWEIGHTS_COL]).reshape(
                     -1
                 )  # structure-wise
             e_loss = np.sum(dEsqr)
@@ -283,10 +277,7 @@ class PyACEFit:
             e_loss = 0
 
         if self.loss_spec.kappa > 0:  # forces have contribution to loss function
-            dFsqr = (
-                self.structures_dataframe[FORCES_COL]
-                - energy_forces_pred_df[FORCES_PRED_COL]
-            )
+            dFsqr = self.structures_dataframe[FORCES_COL] - energy_forces_pred_df[FORCES_PRED_COL]
             dFsqr = dFsqr.map(lambda f: np.sum(f**2, axis=1))
             if FWEIGHTS_COL in self.structures_dataframe.columns:
                 dFsqr = dFsqr * self.structures_dataframe[FWEIGHTS_COL]
@@ -300,16 +291,10 @@ class PyACEFit:
         self.l1 = np.sum(np.abs(basis_coeffs))
         self.l2 = np.sum(basis_coeffs**2)
 
-        loss_coeff = (
-            self.loss_spec.L1_coeffs * self.l1 + self.loss_spec.L2_coeffs * self.l2
-        )
+        loss_coeff = self.loss_spec.L1_coeffs * self.l1 + self.loss_spec.L2_coeffs * self.l2
 
         loss_crad = 0
-        if (
-            self.loss_spec.w0_rad > 0
-            or self.loss_spec.w1_rad > 0
-            or self.loss_spec.w2_rad > 0
-        ):
+        if self.loss_spec.w0_rad > 0 or self.loss_spec.w1_rad > 0 or self.loss_spec.w2_rad > 0:
             smothness = RadialFunctionSmoothness(RadialFunctionsValues(self.bbasis))
             self.smooth_quad = smothness.smooth_quad
             loss_crad = (
@@ -347,9 +332,7 @@ class PyACEFit:
 
         if verbose:
             print(
-                "Eval {}: loss={}".format(self.eval_count, self.last_loss)
-                + " " * 40
-                + "\r",
+                f"Eval {self.eval_count}: loss={self.last_loss}" + " " * 40 + "\r",
                 end="",
             )
 
@@ -369,7 +352,7 @@ class PyACEFit:
             else:
                 raise ValueError(
                     "Type of parameters could be only np.array, list, tuple, ACECTildeBasisSet, ACEBBasisSet"
-                    + "but got {}".format(type(params))
+                    + f"but got {type(params)}"
                 )
 
         is_structures_dataframe_refreshed = False
@@ -393,7 +376,7 @@ class PyACEFit:
 
         return energy_forces_pred_df
 
-    def predict(self, structures_dataframe=None):
+    def predict(self, structures_dataframe: pd.DataFrame | None = None) -> pd.DataFrame:
         return self.predict_energy_forces(structures_dataframe=structures_dataframe)
 
     def predict_projections(
@@ -420,7 +403,7 @@ class PyACEFit:
             else:
                 raise ValueError(
                     "Type of parameters could be only np.array, list, tuple, ACECTildeBasisSet, ACEBBasisSet"
-                    + "but got {}".format(type(params))
+                    + f"but got {type(params)}"
                 )
         elif self.bbasis is not None:
             log.info("No 'params' provided to predict_projections, bbasis will be used")
@@ -511,19 +494,12 @@ class PyACEFit:
 
         self.global_callback = callback
         log.info("Data size:" + str(self.structures_dataframe.shape))
-        # log.debug("self.structures_dataframe.columns = " + str(self.structures_dataframe.columns))
-        log.info(
-            "Energy weights : " + str(EWEIGHTS_COL in self.structures_dataframe.columns)
-        )
-        log.info(
-            "Forces weights : " + str(FWEIGHTS_COL in self.structures_dataframe.columns)
-        )
+        log.info("Energy weights : " + str(EWEIGHTS_COL in self.structures_dataframe.columns))
+        log.info("Forces weights : " + str(FWEIGHTS_COL in self.structures_dataframe.columns))
         self.eval_count = 0
         self.best_loss = None
 
-        log.info(
-            "Number of trainable parameters: {0}".format(len(self.trainable_params))
-        )
+        log.info(f"Number of trainable parameters: {len(self.trainable_params)}")
 
         # self.setup_metrics() # no need, because .metrics is a property with auto initialization
 
@@ -532,7 +508,7 @@ class PyACEFit:
             options["disp"] = True
         if "gtol" not in options:
             options["gtol"] = 1e-8
-        log.info("Scipy minimize: method = {},  options = {}".format(method, options))
+        log.info(f"Scipy minimize: method = {method},  options = {options}")
 
         self.initial_loss = self.loss(self.trainable_params)
         if self.fit_metric_callback is not None:
@@ -541,9 +517,7 @@ class PyACEFit:
             MetricsAggregator.print_detailed_metrics(
                 self.last_fit_metric_data, title="Initial state:"
             )
-            MetricsAggregator.print_extended_metrics(
-                self.last_fit_metric_data, title="INIT STATS"
-            )
+            MetricsAggregator.print_extended_metrics(self.last_fit_metric_data, title="INIT STATS")
         self.fit_metrics_data_dict = {}
         res_opt = minimize(
             self.loss,
@@ -590,5 +564,5 @@ class PyACEFit:
         if self.data_executor is None or create_new:
             self.data_executor = ParallelDataExecutor(
                 distributed_data=self.structures_dataframe[ATOMIC_ENV_COL],
-                **self.executors_kw_args
+                **self.executors_kw_args,
             )

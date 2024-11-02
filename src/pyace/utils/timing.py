@@ -1,14 +1,26 @@
-import numpy as np
-import pandas as pd
 import timeit
 
+import numpy as np
+import pandas as pd
+from ase import Atoms
 from ase.build import bulk
-from pyace import *
+
+from pyace import (
+    ACEBBasisSet,
+    ACEBEvaluator,
+    ACECalculator,
+    BBasisConfiguration,
+    aseatoms_to_atomicenvironment,
+)
 
 
 def run_timing_test(
-    ace_potential, n_struct=10, n_iter=100, atoms_list=None, verbose=True
-):
+    ace_potential: str | BBasisConfiguration | ACEBBasisSet,
+    n_struct: int = 10,
+    n_iter: int = 100,
+    atoms_list: list[Atoms] | None = None,
+    verbose: bool = True,
+) -> pd.DataFrame:
     if isinstance(ace_potential, str):
         bbasis = ACEBBasisSet(ace_potential)
     elif isinstance(ace_potential, BBasisConfiguration):
@@ -17,9 +29,7 @@ def run_timing_test(
         bbasis = ace_potential
     else:
         raise ValueError(
-            "Unsupported format for 'ace_potential' argument ({}), ".format(
-                type(ace_potential)
-            )
+            f"Unsupported format for 'ace_potential' argument ({type(ace_potential)}), "
             + "must be .yaml filename, BBasisConfiguration or ACEBBasisSet"
         )
 
@@ -32,7 +42,7 @@ def run_timing_test(
         for num_r1, num_r, el in zip(
             map(len, bbasis.basis_rank1), map(len, bbasis.basis), bbasis.elements_name
         ):
-            print("{:3}\t\t{:5}\t\t\t{:5}".format(el, num_r1, num_r))
+            print(f"{el:3}\t\t{num_r1:5}\t\t\t{num_r:5}")
         print("=" * 60)
         print()
 
@@ -49,9 +59,11 @@ def run_timing_test(
         atoms_list = []
         for _ in range(n_struct):
             proto = np.random.choice(["fcc", "bcc"])
-            atoms = bulk(
-                "Al", proto, a=np.random.uniform(low=3.5, high=4.5), cubic=True
-            ) * (2, 2, 2)
+            atoms = bulk("Al", proto, a=np.random.uniform(low=3.5, high=4.5), cubic=True) * (
+                2,
+                2,
+                2,
+            )
 
             pos = atoms.get_positions()
             dpos = np.random.randn(*np.shape(pos)) * 0.1
@@ -85,7 +97,7 @@ def run_timing_test(
 
     times = []
     if verbose:
-        print("Running tests ({} strctures):".format(len(ae_list)))
+        print(f"Running tests ({len(ae_list)} structures):")
     for i, ae in enumerate(ae_list):
         time_res = timeit.timeit(
             stmt="calc.compute(ae)", globals={"calc": calc, "ae": ae}, number=n_iter
@@ -119,17 +131,13 @@ def run_timing_test(
 
     if verbose:
         print("=" * 80)
-        print(
-            "Prototype\tNum. of atoms\tNeighbours per atom\t Time per atom (mcs/atom)"
-        )
+        print("Prototype\tNum. of atoms\tNeighbours per atom\t Time per atom (mcs/atom)")
         print("=" * 80)
         for proto, row in gdf.iterrows():
             print(proto, end="\t\t")
             print("{: <4}".format(row[("n_atoms", "mean")]), end="\t\t")
             print(
-                "{:6.2f} (+/-{:6.2f})".format(
-                    row[("n_neigh", "mean")], row[("n_neigh", "std")]
-                ),
+                "{:6.2f} (+/-{:6.2f})".format(row[("n_neigh", "mean")], row[("n_neigh", "std")]),
                 end="\t\t",
             )
             print(
@@ -145,10 +153,6 @@ def run_timing_test(
     )
 
     if verbose:
-        print(
-            "Overall timing (mcs/atom):\t {:.0f} (+/- {:.0f}) ".format(
-                tpa_mean, tpa_std
-            )
-        )
+        print(f"Overall timing (mcs/atom):\t {tpa_mean:.0f} (+/- {tpa_std:.0f}) ")
 
     return res_df

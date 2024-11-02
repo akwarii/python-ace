@@ -1,25 +1,38 @@
 import logging
+import warnings
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 import pandas as pd
-import warnings
 
-from typing import Dict, Union, Callable
-
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-
-from pyace.const import *
-from pyace.basis import BBasisConfiguration, ACEBBasisSet
-
+from pyace.basis import ACEBBasisSet, BBasisConfiguration
+from pyace.const import (
+    BACKEND_BATCH_SIZE_KW,
+    BACKEND_BATCH_SIZE_REDUCTION_FACTOR_KW,
+    BACKEND_BATCH_SIZE_REDUCTION_KW,
+    BACKEND_EVALUATOR_KW,
+    BACKEND_GPU_CONFIG,
+    BACKEND_NWORKERS_KW,
+    BACKEND_PARALLEL_MODE_KW,
+    FIT_NITER_KW,
+    FIT_OPTIMIZER_KW,
+    FIT_OPTIONS_KW,
+    PYACE_EVAL,
+    TENSORPOT_EVAL,
+)
+from pyace.lossfuncspec import LossFunctionSpecification
 from pyace.multispecies_basisextension import (
     compute_bbasisset_train_mask,
     expand_trainable_parameters,
 )
-from pyace.lossfuncspec import LossFunctionSpecification
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class BackendConfig:
-    def __init__(self, backend_config_dict: Dict):
+    def __init__(self, backend_config_dict: dict):
         self.backend_config_dict = backend_config_dict
         self.validate()
 
@@ -43,12 +56,12 @@ class BackendConfig:
 class FitBackendAdapter:
     def __init__(
         self,
-        backend_config: Union[Dict, BackendConfig],
-        loss_spec: LossFunctionSpecification = None,
-        fit_config: Dict = None,
-        callback: Callable = None,
-        fit_metrics_callback: Callable = None,
-        test_metrics_callback: Callable = None,
+        backend_config: dict | BackendConfig,
+        loss_spec: LossFunctionSpecification | None = None,
+        fit_config: dict | None = None,
+        callback: Callable | None = None,
+        fit_metrics_callback: Callable | None = None,
+        test_metrics_callback: Callable | None = None,
     ):
         if isinstance(backend_config, dict):
             self.backend_config = BackendConfig(backend_config)
@@ -71,10 +84,10 @@ class FitBackendAdapter:
         self,
         bbasisconfig: BBasisConfiguration,
         dataframe: pd.DataFrame,
-        loss_spec: LossFunctionSpecification = None,
-        fit_config: Dict = None,
-        callback: Callable = None,
-        test_dataframe: pd.DataFrame = None,
+        loss_spec: LossFunctionSpecification | None = None,
+        fit_config: dict | None = None,
+        callback: Callable | None = None,
+        test_dataframe: pd.DataFrame | None = None,
     ) -> BBasisConfiguration:
         if loss_spec is None:
             loss_spec = self.loss_spec
@@ -95,7 +108,7 @@ class FitBackendAdapter:
             elements=elements, trainable_parameters=trainable_parameters
         )
 
-        log.info("Trainable parameters: {}".format(trainable_parameters_dict))
+        log.info(f"Trainable parameters: {trainable_parameters_dict}")
 
         # save globally
         self.trainable_parameters_dict = trainable_parameters_dict
@@ -103,8 +116,8 @@ class FitBackendAdapter:
 
         if self.backend_config.evaluator_name == TENSORPOT_EVAL:
             from tensorflow.python.framework.errors_impl import (
-                ResourceExhaustedError,
                 InternalError,
+                ResourceExhaustedError,
             )
 
             while True:
@@ -123,7 +136,7 @@ class FitBackendAdapter:
                     self.log_optimization_result()
                     return fit_res
                 except (ResourceExhaustedError, InternalError) as e:
-                    log.error("{} errors encountered".format(e))
+                    log.error(f"{e} errors encountered")
                     if self.backend_config.get(BACKEND_BATCH_SIZE_REDUCTION_KW, True):
                         batch_size = self.backend_config.get(BACKEND_BATCH_SIZE_KW, 10)
                         batch_size_reduction_factor = self.backend_config.get(
@@ -145,31 +158,23 @@ class FitBackendAdapter:
                         # check the latest version of potential, update bbasisconfig to restart
                         try:
                             log.info("Attempt to get last version of potential")
-                            bbasisconfig = (
-                                self.fitter.tensorpot.potential.get_updated_config()
-                            )
+                            bbasisconfig = self.fitter.tensorpot.potential.get_updated_config()
                             log.info("Last version of potential is extracted")
                         except Exception as e:
-                            log.error(
-                                "Can not get last version of potential: {}".format(e)
-                            )
+                            log.error(f"Can not get last version of potential: {e}")
                     else:
                         log.error(
                             "Use `backend:batch_size_reduction` option for automatic batch size reduction"
                         )
                         raise RuntimeError(
-                            "{} errors encountered. "
-                            + "Consider using `backend::{}=true` option for automatic batch size reduction".format(
-                                e, BACKEND_BATCH_SIZE_REDUCTION_KW
-                            )
+                            f"{e} errors encountered. "
+                            f"Consider using `backend::{BACKEND_BATCH_SIZE_REDUCTION_KW}=true` option for automatic batch size reduction"
                         )
                 except Exception as e:
                     raise e
 
         elif self.backend_config.evaluator_name == PYACE_EVAL:
-            self.setup_pyace(
-                bbasisconfig, dataframe, loss_spec, trainable_parameters_dict
-            )
+            self.setup_pyace(bbasisconfig, dataframe, loss_spec, trainable_parameters_dict)
             fit_res = self.run_pyace_fit(
                 bbasisconfig,
                 dataframe,
@@ -180,13 +185,9 @@ class FitBackendAdapter:
             self.log_optimization_result()
             return fit_res
         else:
-            raise ValueError(
-                "{0} is not a valid evaluator".format(
-                    self.backend_config.evaluator_name
-                )
-            )
+            raise ValueError(f"{self.backend_config.evaluator_name} is not a valid evaluator")
 
-    def log_optimization_result(self, res_opt=None):
+    def log_optimization_result(self, res_opt=None) -> None:
         if res_opt is None:
             res_opt = self.res_opt
         try:
@@ -202,7 +203,7 @@ class FitBackendAdapter:
         except Exception as e:
             log.error("Optimization result: not available: " + str(e))
 
-    def get_evaluator_version_dict(self):
+    def get_evaluator_version_dict(self) -> dict[str, str]:
         try:
             if self.backend_config.evaluator_name == TENSORPOT_EVAL:
                 import tensorpotential
@@ -216,34 +217,30 @@ class FitBackendAdapter:
                     "ace_evaluator_version": get_ace_evaluator_version(),
                 }
             else:
-                raise ValueError(
-                    "{0} is not a valid evaluator".format(
-                        self.backend_config.evaluator_name
-                    )
-                )
+                raise ValueError(f"{self.backend_config.evaluator_name} is not a valid evaluator")
         except Exception as e:
             log.error(e)
-        return {}
+            return {}
 
     def setup_tensorpot(
         self,
         bbasisconfig: BBasisConfiguration,
         dataframe: pd.DataFrame,
         loss_spec: LossFunctionSpecification,
-        trainable_parameters_dict: Dict,
+        trainable_parameters_dict: dict,
     ) -> BBasisConfiguration:
-        from tensorpotential.potentials.ace import ACE
-        from tensorpotential.tensorpot import TensorPotential
-        from tensorpotential.fit import FitTensorPotential
-        from tensorpotential.utils.utilities import batching_data, init_gpu_config
         from tensorpotential.constants import (
-            LOSS_TYPE,
-            LOSS_FORCE_FACTOR,
-            LOSS_ENERGY_FACTOR,
+            AUX_LOSS_FACTOR,
             L1_REG,
             L2_REG,
-            AUX_LOSS_FACTOR,
+            LOSS_ENERGY_FACTOR,
+            LOSS_FORCE_FACTOR,
+            LOSS_TYPE,
         )
+        from tensorpotential.fit import FitTensorPotential
+        from tensorpotential.potentials.ace import ACE
+        from tensorpotential.tensorpot import TensorPotential
+        from tensorpotential.utils.utilities import batching_data, init_gpu_config
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
@@ -252,7 +249,7 @@ class FitBackendAdapter:
             init_gpu_config(gpu_config)
             batch_size = self.backend_config.get(BACKEND_BATCH_SIZE_KW, 10)
             log.info("Loss function specification: " + str(loss_spec))
-            log.info("Batch size: {}".format(batch_size))
+            log.info(f"Batch size: {batch_size}")
             batches = batching_data(dataframe, batch_size=batch_size)
             n_batches = len(batches)
             loss_force_factor = loss_spec.kappa
@@ -297,9 +294,9 @@ class FitBackendAdapter:
         bbasisconfig: BBasisConfiguration,
         dataframe: pd.DataFrame,
         loss_spec: LossFunctionSpecification,
-        fit_config: Dict,
-        trainable_parameters_dict: Dict,
-        test_dataframe: pd.DataFrame = None,
+        fit_config: dict,
+        trainable_parameters_dict: dict,
+        test_dataframe: pd.DataFrame | None = None,
     ) -> BBasisConfiguration:
         with warnings.catch_warnings():
             # adapt call of self._callback(current_bbasisconfig) from FitTensorPotential.callback(coeffs)
@@ -309,9 +306,7 @@ class FitBackendAdapter:
                 )
                 self._callback(new_config)
 
-            jacobian_factor = compute_bbasisset_train_mask(
-                bbasisconfig, trainable_parameters_dict
-            )
+            jacobian_factor = compute_bbasisset_train_mask(bbasisconfig, trainable_parameters_dict)
             if np.all(jacobian_factor):
                 jacobian_factor = None  # default value - train all
             else:
@@ -342,7 +337,7 @@ class FitBackendAdapter:
         bbasisconfig: BBasisConfiguration,
         dataframe: pd.DataFrame,
         loss_spec: LossFunctionSpecification,
-        trainable_parameters_dict: Dict,
+        trainable_parameters_dict: dict,
     ) -> BBasisConfiguration:
         from pyace.pyacefit import PyACEFit
 
@@ -365,12 +360,6 @@ class FitBackendAdapter:
             trainable_parameters=trainable_parameters_dict,
         )
 
-        # maxiter = fit_config.get(FIT_NITER_KW, 100)
-        #
-        # fit_options = fit_config.get(FIT_OPTIONS_KW, {})
-        # options = {"maxiter": maxiter, "disp": True}
-        # options.update(fit_options)
-
         # assign total_number_of_functions to fitter
         total_number_of_functions = bbasisconfig.total_number_of_functions
         self.fitter.nfuncs = total_number_of_functions
@@ -380,9 +369,9 @@ class FitBackendAdapter:
         bbasisconfig: BBasisConfiguration,
         dataframe: pd.DataFrame,
         loss_spec: LossFunctionSpecification,
-        fit_config: Dict,
-        trainable_parameters_dict: Dict,
-        test_dataframe: pd.DataFrame = None,
+        fit_config: dict,
+        trainable_parameters_dict: dict,
+        test_dataframe: pd.DataFrame | None = None,
     ) -> BBasisConfiguration:
         maxiter = fit_config.get(FIT_NITER_KW, 100)
         fit_options = fit_config.get(FIT_OPTIONS_KW, {})
@@ -402,20 +391,16 @@ class FitBackendAdapter:
         # bbasisconfig.set_all_coeffs(new_bbasisconf.get_all_coeffs())
         return new_bbasisconf
 
-    def setup_backend_for_predict(self, bbasisconfig):
+    def setup_backend_for_predict(self, bbasisconfig: BBasisConfiguration | None = None) -> None:
         if bbasisconfig is None:
             raise ValueError(
                 "`bbasisconfig` couldn't be None for FitAdapter.setup_backend_for_predict"
             )
-        log.info(
-            "Setting {} backend for predicting".format(
-                self.backend_config.evaluator_name
-            )
-        )
+        log.info(f"Setting {self.backend_config.evaluator_name} backend for predicting")
         if self.backend_config.evaluator_name == TENSORPOT_EVAL:
+            from tensorpotential.fit import FitTensorPotential
             from tensorpotential.potentials.ace import ACE
             from tensorpotential.tensorpot import TensorPotential
-            from tensorpotential.fit import FitTensorPotential
 
             ace_pot = ACE(bbasisconfig)
             tp = TensorPotential(ace_pot)
@@ -425,23 +410,23 @@ class FitBackendAdapter:
 
             self.fitter = PyACEFit(bbasisconfig)
         else:
-            raise ValueError(
-                "{0} is not a valid evaluator".format(
-                    self.backend_config.evaluator_name
-                )
-            )
+            raise ValueError(f"{self.backend_config.evaluator_name} is not a valid evaluator")
 
-    def predict(self, structures_dataframe=None, bbasisconfig=None):
+    def predict(
+        self,
+        structures_dataframe: pd.DataFrame | None = None,
+        bbasisconfig: BBasisConfiguration | None = None,
+    ):
         if self.fitter is None:
             self.setup_backend_for_predict(bbasisconfig)
         return self.fitter.predict(structures_dataframe)
 
     def compute_metrics(
         self,
-        energy_col="energy_corrected",
-        nat_column="NUMBER_OF_ATOMS",
-        force_col="forces",
-    ):
+        energy_col: str = "energy_corrected",
+        nat_column: str = "NUMBER_OF_ATOMS",
+        force_col: str = "forces",
+    ) -> dict[str, Any]:
         results = {}
         prediction = self.predict()
         l1, l2, smth1, smth2, smth3 = self.fitter.get_reg_components()
@@ -476,11 +461,11 @@ class FitBackendAdapter:
 
         return results
 
-    def print_detailed_metrics(self, title="Iteration:"):
+    def print_detailed_metrics(self, title: str = "Iteration:"):
         if self.fitter is not None:
             self.fitter.print_detailed_metrics(title=title)
 
-    def print_extended_metrics(self, title="Iteration:"):
+    def print_extended_metrics(self, title: str = "Iteration:"):
         if self.fitter is not None:
             self.fitter.print_extended_metrics(title=title)
 

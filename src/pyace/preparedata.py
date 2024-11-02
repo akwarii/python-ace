@@ -1,21 +1,39 @@
 import logging
+import os
+import time
 from collections import defaultdict
 
 import numpy as np
-import os
 import pandas as pd
-import time
-
-from typing import Dict, Union, Tuple, Optional
-
 from ase.calculators.singlepoint import SinglePointCalculator
 
 from pyace.atomicenvironment import aseatoms_to_atomicenvironment, generate_tp_atoms
-from pyace.const import *
+from pyace.const import (
+    ASE_ATOMS,
+    ATOMIC_ENV_COLUMN,
+    ATOMIC_ENV_DF_COLUMN,
+    E_CHULL_DIST_PER_ATOM,
+    E_CORRECTED_PER_ATOM_COLUMN,
+    EFFECTIVE_ENERGY,
+    ENERGY,
+    ENERGY_CORRECTED_COL,
+    ENERGYBASED_WEIGHTING_POLICY,
+    EXTERNAL_WEIGHTING_POLICY,
+    FORCES_COL,
+    NUMBER_OF_ATOMS,
+    PBC,
+    PYACE_EVAL,
+    TENSORPOT_EVAL,
+    TP_ATOMS_DF_COLUMN,
+    WEIGHTING_TYPE_KW,
+    WEIGHTS_ENERGY_COLUMN,
+    WEIGHTS_FACTOR,
+    WEIGHTS_FORCES_COLUMN,
+)
 from pyace.process_df import (
+    SINGLE_ATOM_ENERGY_DICT,
     compute_convexhull_dist,
     compute_corrected_energy,
-    SINGLE_ATOM_ENERGY_DICT,
     compute_shifted_scaled_corrected_energy,
 )
 
@@ -27,14 +45,14 @@ def sizeof_fmt(file_name_or_size, suffix="B"):
         file_name_or_size = os.path.getsize(file_name_or_size)
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(file_name_or_size) < 1024.0:
-            return "%3.1f%s%s" % (file_name_or_size, unit, suffix)
+            return f"{file_name_or_size:3.1f}{unit}{suffix}"
         file_name_or_size /= 1024.0
-    return "%.1f%s%s" % (file_name_or_size, "Yi", suffix)
+    return "{:.1f}{}{}".format(file_name_or_size, "Yi", suffix)
 
 
 def save_dataframe(df: pd.DataFrame, filename: str, protocol: int = 4):
     filename = os.path.abspath(filename)
-    log.info("Writing fit pickle file: {}".format(filename))
+    log.info(f"Writing fit pickle file: {filename}")
     if filename.endswith("gzip"):
         compression = "gzip"
     else:
@@ -45,16 +63,12 @@ def save_dataframe(df: pd.DataFrame, filename: str, protocol: int = 4):
         log.info("Transforming to DataFrameWithMetadata")
         df = DataFrameWithMetadata(df)
     df.to_pickle(filename, protocol=protocol, compression=compression)
-    log.info("Saved to file {} ({})".format(filename, sizeof_fmt(filename)))
+    log.info(f"Saved to file {filename} ({sizeof_fmt(filename)})")
 
 
 def load_dataframe(filename: str, compression: str = "infer") -> pd.DataFrame:
     filesize = os.path.getsize(filename)
-    log.info(
-        "Loading dataframe from pickle file {} ({})".format(
-            filename, sizeof_fmt(filesize)
-        )
-    )
+    log.info(f"Loading dataframe from pickle file {filename} ({sizeof_fmt(filesize)})")
     if filename.endswith(".gzip"):
         compression = "gzip"
     df = pd.read_pickle(filename, compression=compression)
@@ -73,7 +87,7 @@ def attach_single_point_calculator(row):
 # define safe_min function, that return None of input is empty
 def safe_min(val):
     try:
-        return min((v for v in val if v is not None))
+        return min(v for v in val if v is not None)
     except (ValueError, TypeError):
         return None
 
@@ -99,15 +113,13 @@ def normalize_energy_forces_weights(df: pd.DataFrame):
     if df is None:
         return
     if WEIGHTS_ENERGY_COLUMN not in df.columns:
-        raise ValueError("`{}` column not in dataframe".format(WEIGHTS_ENERGY_COLUMN))
+        raise ValueError(f"`{WEIGHTS_ENERGY_COLUMN}` column not in dataframe")
     if WEIGHTS_FORCES_COLUMN not in df.columns:
-        raise ValueError("`{}` column not in dataframe".format(WEIGHTS_FORCES_COLUMN))
+        raise ValueError(f"`{WEIGHTS_FORCES_COLUMN}` column not in dataframe")
 
     assert (df[WEIGHTS_FORCES_COLUMN].map(len) == df[FORCES_COL].map(len)).all()
 
-    df[WEIGHTS_ENERGY_COLUMN] = (
-        df[WEIGHTS_ENERGY_COLUMN] / df[WEIGHTS_ENERGY_COLUMN].sum()
-    )
+    df[WEIGHTS_ENERGY_COLUMN] = df[WEIGHTS_ENERGY_COLUMN] / df[WEIGHTS_ENERGY_COLUMN].sum()
     # df[WEIGHTS_FORCES_COLUMN] = df[WEIGHTS_FORCES_COLUMN] * df[WEIGHTS_ENERGY_COLUMN]
     w_forces_norm = df[WEIGHTS_FORCES_COLUMN].map(sum).sum()
     df[WEIGHTS_FORCES_COLUMN] = df[WEIGHTS_FORCES_COLUMN] / w_forces_norm
@@ -225,7 +237,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         if self.nfit is None:
             if self.n_upper is None and self.n_lower is None:
                 self.nfit = len(df)
-                log.info("Set nfit to the dataset size {}".format(self.nfit))
+                log.info(f"Set nfit to the dataset size {self.nfit}")
             elif self.n_upper is not None and self.n_lower is not None:
                 self.nfit = self.n_upper + self.n_lower
                 log.info(
@@ -234,9 +246,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
                     )
                 )
             else:  # nfit=None, one of n_upper or n_lower not None
-                raise ValueError(
-                    "nfit is None. Please provide both n_lower and n_upper"
-                )
+                raise ValueError("nfit is None. Please provide both n_lower and n_upper")
         else:  # nfit is not None
             if self.n_upper is not None or self.n_lower is not None:
                 raise ValueError("nfit is not None. No n_lower or n_upper is expected")
@@ -244,20 +254,18 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         if self.reftype == "bulk":
             log.info("Reducing to bulk data")
             df = df[df.pbc]
-            log.info("Dataset size after reduction: {}".format(len(df)))
+            log.info(f"Dataset size after reduction: {len(df)}")
         elif self.reftype == "cluster":
             log.info("Reducing to cluster data")
             df = df[~df.pbc]
-            log.info("Dataset size after reduction: {}".format(len(df)))
+            log.info(f"Dataset size after reduction: {len(df)}")
         else:
             log.info("Keeping bulk and cluster data")
 
         check_df_non_empty(df)
 
         if self.cutoff is not None:
-            log.info(
-                "EnergyBasedWeightingPolicy::cutoff is provided but will be ignored"
-            )
+            log.info("EnergyBasedWeightingPolicy::cutoff is provided but will be ignored")
         else:
             log.info(
                 "No cutoff for EnergyBasedWeightingPolicy is provided, no structures outside cutoff that "
@@ -271,14 +279,10 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
                 "EnergyBasedWeightingPolicy: energy reference frame - convex hull distance (if possible)"
             )
             # generate "e_chull_dist_per_atom" column
-            compute_convexhull_dist(
-                df, energy_per_atom_column=E_CORRECTED_PER_ATOM_COLUMN
-            )
+            compute_convexhull_dist(df, energy_per_atom_column=E_CORRECTED_PER_ATOM_COLUMN)
             df[EFFECTIVE_ENERGY] = df[E_CHULL_DIST_PER_ATOM]
         elif self.energy == "cohesive":
-            log.info(
-                "EnergyBasedWeightingPolicy: energy reference frame - cohesive energy"
-            )
+            log.info("EnergyBasedWeightingPolicy: energy reference frame - cohesive energy")
             emin = df[E_CORRECTED_PER_ATOM_COLUMN].min()
             df[EFFECTIVE_ENERGY] = df[E_CORRECTED_PER_ATOM_COLUMN] - emin
         else:
@@ -290,11 +294,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
             )
 
         if self.DFup is not None:
-            log.info(
-                "Maximal allowed on-atom force vector length is DFup = {:.3f}".format(
-                    self.DFup
-                )
-            )
+            log.info(f"Maximal allowed on-atom force vector length is DFup = {self.DFup:.3f}")
             fmax_column = df["forces"].map(lambda f: np.max(np.linalg.norm(f, axis=1)))
             size_before = len(df)
             df = df[fmax_column <= self.DFup]
@@ -316,7 +316,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         eup_mask = df[EFFECTIVE_ENERGY] >= self.DElow
         nlow = elow_mask.sum()
         nup = eup_mask.sum()
-        log.info("{} structures below DElow={} eV/atom".format(nlow, self.DElow))
+        log.info(f"{nlow} structures below DElow={self.DElow} eV/atom")
         log.info(
             "{} structures between DElow={} eV/atom and DEup={} eV/atom".format(
                 nup, self.DElow, self.DEup
@@ -340,24 +340,18 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
             if nlow <= self.nfit:
                 low_selected_list = low_candidate_list
             else:  # nlow >nfit
-                low_selected_list = np.random.choice(
-                    low_candidate_list, self.nfit, replace=False
-                )
+                low_selected_list = np.random.choice(low_candidate_list, self.nfit, replace=False)
 
         # upper tier
         if self.n_upper is not None:
             if self.n_upper < nup:
-                up_selected_list = np.random.choice(
-                    up_candidate_list, self.n_upper, replace=False
-                )
+                up_selected_list = np.random.choice(up_candidate_list, self.n_upper, replace=False)
             else:
                 up_selected_list = up_candidate_list
         else:
             nremain = self.nfit - len(low_selected_list)
             if nremain <= nup:
-                up_selected_list = np.random.choice(
-                    up_candidate_list, nremain, replace=False
-                )
+                up_selected_list = np.random.choice(up_candidate_list, nremain, replace=False)
             else:
                 up_selected_list = up_candidate_list
 
@@ -370,7 +364,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         elow_mask = df[EFFECTIVE_ENERGY] < self.DElow
         eup_mask = df[EFFECTIVE_ENERGY] >= self.DElow
 
-        log.info("{} structures were selected".format(len(df)))
+        log.info(f"{len(df)} structures were selected")
 
         assert elow_mask.sum() + eup_mask.sum() == len(df)
         if len(up_selected_list) == 0 and self.wlow is not None and self.wlow != 1.0:
@@ -386,21 +380,17 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         DE = abs(self.DE)
 
         df[WEIGHTS_ENERGY_COLUMN] = 1 / (df[EFFECTIVE_ENERGY] + DE) ** 2
-        df[WEIGHTS_ENERGY_COLUMN] = (
-            df[WEIGHTS_ENERGY_COLUMN] / df[WEIGHTS_ENERGY_COLUMN].sum()
-        )
+        df[WEIGHTS_ENERGY_COLUMN] = df[WEIGHTS_ENERGY_COLUMN] / df[WEIGHTS_ENERGY_COLUMN].sum()
 
         e_weights_sum = df[WEIGHTS_ENERGY_COLUMN].sum()
-        assert np.allclose(
-            e_weights_sum, 1
-        ), "Energy weights doesn't sum up to one: {}".format(e_weights_sum)
+        assert np.allclose(e_weights_sum, 1), "Energy weights doesn't sum up to one: {}".format(
+            e_weights_sum
+        )
         #  ### relative weights of structures below and above threshold DElow
         wlowcur = df.loc[elow_mask, WEIGHTS_ENERGY_COLUMN].sum()
         wupcur = df.loc[eup_mask, WEIGHTS_ENERGY_COLUMN].sum()
 
-        log.info(
-            "Current relative energy weights: {:.3f}/{:.3f}".format(wlowcur, wupcur)
-        )
+        log.info(f"Current relative energy weights: {wlowcur:.3f}/{wupcur:.3f}")
         if self.wlow is not None:
             self.wlow = float(self.wlow)
             if 1.0 > wlowcur > 0.0:
@@ -425,9 +415,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
                 energy_weights_sum = df[WEIGHTS_ENERGY_COLUMN].sum()
                 assert np.allclose(
                     energy_weights_sum, 1
-                ), "Energy weights sum differs from one and equal to {}".format(
-                    energy_weights_sum
-                )
+                ), f"Energy weights sum differs from one and equal to {energy_weights_sum}"
                 wlowcur = df.loc[elow_mask, WEIGHTS_ENERGY_COLUMN].sum()
                 wupcur = df.loc[eup_mask, WEIGHTS_ENERGY_COLUMN].sum()
                 log.info(
@@ -453,24 +441,18 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
             lambda forces: 1 / (np.sum(forces**2, axis=1) + DF)
         )
         assert (df[WEIGHTS_FORCES_COLUMN].map(len) == df["NUMBER_OF_ATOMS"]).all()
-        df[WEIGHTS_FORCES_COLUMN] = (
-            df[WEIGHTS_FORCES_COLUMN] * df[WEIGHTS_ENERGY_COLUMN]
-        )
+        df[WEIGHTS_FORCES_COLUMN] = df[WEIGHTS_FORCES_COLUMN] * df[WEIGHTS_ENERGY_COLUMN]
         w_forces_norm = df[WEIGHTS_FORCES_COLUMN].map(sum).sum()
         df[WEIGHTS_FORCES_COLUMN] = df[WEIGHTS_FORCES_COLUMN] / w_forces_norm
 
         energy_weights_sum = df[WEIGHTS_ENERGY_COLUMN].sum()
         assert np.allclose(
             energy_weights_sum, 1
-        ), "Energy weights sum differs from one and equal to {}".format(
-            energy_weights_sum
-        )
+        ), f"Energy weights sum differs from one and equal to {energy_weights_sum}"
         forces_weights_sum = df[WEIGHTS_FORCES_COLUMN].map(sum).sum()
         assert np.allclose(
             forces_weights_sum, 1
-        ), "Forces weights sum differs from one and equal to {}".format(
-            forces_weights_sum
-        )
+        ), f"Forces weights sum differs from one and equal to {forces_weights_sum}"
         return df
 
     def plot(self, df):
@@ -490,7 +472,7 @@ class EnergyBasedWeightingPolicy(StructuresDatasetWeightingPolicy):
         ax.semilogy(xv, yv, "-", label="cutoff")
 
         plt.ylabel(r"| cohesive energy | / eV")
-        plt.xlabel("dmin / ${\mathrm{\AA}}$")
+        plt.xlabel(r"dmin / ${\mathrm{\AA}}$")
         plt.title("Reference data overview")
         plt.legend()
         plt.xlim(1, self.cutoff + 0.5)
@@ -507,12 +489,8 @@ class UniformWeightingPolicy(StructuresDatasetWeightingPolicy):
 
     def generate_weights(self, df):
         df[WEIGHTS_ENERGY_COLUMN] = 1.0 / len(df)
-        df[WEIGHTS_FORCES_COLUMN] = df[FORCES_COL].map(
-            lambda forces: np.ones(len(forces))
-        )
-        df[WEIGHTS_FORCES_COLUMN] = (
-            df[WEIGHTS_FORCES_COLUMN] * df[WEIGHTS_ENERGY_COLUMN]
-        )
+        df[WEIGHTS_FORCES_COLUMN] = df[FORCES_COL].map(lambda forces: np.ones(len(forces)))
+        df[WEIGHTS_FORCES_COLUMN] = df[WEIGHTS_FORCES_COLUMN] * df[WEIGHTS_ENERGY_COLUMN]
         normalize_energy_forces_weights(df)
         return df
 
@@ -527,16 +505,14 @@ class ExternalWeightingPolicy(StructuresDatasetWeightingPolicy):
 
     def __str__(self):
         return "ExternalWeightingPolicy(filename={filename})".format(
-            filename=self.filename_or_df
-            if isinstance(self.filename_or_df, str)
-            else "[pd.DataFrame]"
+            filename=(
+                self.filename_or_df if isinstance(self.filename_or_df, str) else "[pd.DataFrame]"
+            )
         )
 
     def generate_weights(self, df):
         if isinstance(self.filename_or_df, str):
-            log.info(
-                "Loading external weights dataframe {}".format(self.filename_or_df)
-            )
+            log.info(f"Loading external weights dataframe {self.filename_or_df}")
             self.weights_df = pd.read_pickle(self.filename_or_df, compression="gzip")
         else:
             self.weights_df = self.filename_or_df
@@ -550,10 +526,12 @@ class ExternalWeightingPolicy(StructuresDatasetWeightingPolicy):
         for col in [WEIGHTS_ENERGY_COLUMN, WEIGHTS_FORCES_COLUMN]:
             assert (
                 col in self.weights_df.columns
-            ), "`{}` column not in external weights dataframe".format(col)
+            ), f"`{col}` column not in external weights dataframe"
 
         if not all([w_ind in df.index for w_ind in self.weights_df.index]):
-            error_msg = "Not all structure indices from weights dataframe are in original dataframe"
+            error_msg = (
+                "Not all structure indices from weights dataframe are in original dataframe"
+            )
             log.error(error_msg)
             raise ValueError(error_msg)
 
@@ -582,21 +560,15 @@ class ExternalWeightingPolicy(StructuresDatasetWeightingPolicy):
         energy_weights_sum = mdf[WEIGHTS_ENERGY_COLUMN].sum()
         assert np.allclose(
             energy_weights_sum, 1
-        ), "Energy weights sum differs from one and equal to {}".format(
-            energy_weights_sum
-        )
+        ), f"Energy weights sum differs from one and equal to {energy_weights_sum}"
         forces_weights_sum = mdf[WEIGHTS_FORCES_COLUMN].map(sum).sum()
         assert np.allclose(
             forces_weights_sum, 1
-        ), "Forces weights sum differs from one and equal to {}".format(
-            forces_weights_sum
-        )
+        ), f"Forces weights sum differs from one and equal to {forces_weights_sum}"
         return mdf
 
 
-def train_test_split(
-    df, test_size: Union[float, int]
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def train_test_split(df, test_size: float | int) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Split df into train and test
     :param df: data frame
@@ -620,7 +592,7 @@ def train_test_split(
 
 
 def get_weighting_policy(
-    weighting_policy_spec: Dict,
+    weighting_policy_spec: dict,
 ) -> StructuresDatasetWeightingPolicy:
     if weighting_policy_spec is None:
         return UniformWeightingPolicy()
@@ -645,9 +617,7 @@ def get_weighting_policy(
         del weighting_policy_spec[WEIGHTING_TYPE_KW]
         weighting_policy = ExternalWeightingPolicy(**weighting_policy_spec)
     else:
-        raise ValueError(
-            "Unknown weighting 'type': " + weighting_policy_spec[WEIGHTING_TYPE_KW]
-        )
+        raise ValueError("Unknown weighting 'type': " + weighting_policy_spec[WEIGHTING_TYPE_KW])
 
     return weighting_policy
 
@@ -681,8 +651,8 @@ def get_reference_dataset(evaluator_name, dataframe_fname):
 
 
 def apply_weights(
-    df: Optional[pd.DataFrame], weighting_policy_spec, ignore_weights=False
-) -> Optional[pd.DataFrame]:
+    df: pd.DataFrame | None, weighting_policy_spec, ignore_weights=False
+) -> pd.DataFrame | None:
     if df is None:
         return
     if (
@@ -699,14 +669,10 @@ def apply_weights(
         if ignore_weights and (
             WEIGHTS_ENERGY_COLUMN in df.columns or WEIGHTS_FORCES_COLUMN in df.columns
         ):
-            log.info(
-                "Existing weights are ignored, weighting policy calculation is forced"
-            )
+            log.info("Existing weights are ignored, weighting policy calculation is forced")
 
         if weighting_policy_spec is None:
-            log.info(
-                "No weighting policy is specified, setting default weighting policy"
-            )
+            log.info("No weighting policy is specified, setting default weighting policy")
         weighting_policy = get_weighting_policy(weighting_policy_spec)
 
         log.info("Apply weights policy: " + str(weighting_policy))
@@ -722,9 +688,7 @@ def apply_weights(
     return df
 
 
-def adjust_aug_weights(
-    df: Optional[pd.DataFrame], aug_factor
-) -> Optional[pd.DataFrame]:
+def adjust_aug_weights(df: pd.DataFrame | None, aug_factor) -> pd.DataFrame | None:
     if df is None:
         return
     if "name" in df.columns:
@@ -741,9 +705,7 @@ def adjust_aug_weights(
                     "Augmented weights are not set, probably because real data weights are provided already"
                 )
                 we_const = df.loc[~aug_mask, WEIGHTS_ENERGY_COLUMN].median()
-                wf_const = np.median(
-                    np.hstack(df.loc[~aug_mask, WEIGHTS_FORCES_COLUMN])
-                )
+                wf_const = np.median(np.hstack(df.loc[~aug_mask, WEIGHTS_FORCES_COLUMN]))
                 log.info(
                     f"Estimating median weights for real data: {we_const=:.5g}, {wf_const=:.5g}"
                 )
@@ -753,8 +715,7 @@ def adjust_aug_weights(
                 ].map(lambda at: np.ones((len(at),)))
                 if "w_forces_mask" in df.columns:
                     df.loc[aug_mask, WEIGHTS_FORCES_COLUMN] = (
-                        df.loc[aug_mask, WEIGHTS_FORCES_COLUMN]
-                        * df.loc[aug_mask, "w_forces_mask"]
+                        df.loc[aug_mask, WEIGHTS_FORCES_COLUMN] * df.loc[aug_mask, "w_forces_mask"]
                     )
             log.info(f"Decreasing augmented weights by factor {aug_factor:.3g}")
             df.loc[aug_mask, WEIGHTS_ENERGY_COLUMN] *= aug_factor
@@ -767,7 +728,7 @@ def big_warning(msg):
     lines = msg.split("\n")
     max_len = max(map(len, lines))
     for m in lines:
-        tot_msg += f"# " + m + " " * (max_len - len(m)) + " #\n"
+        tot_msg += "# " + m + " " * (max_len - len(m)) + " #\n"
     tot_msg = (
         "\n"
         + "#" * (max_len + 4)
@@ -867,9 +828,7 @@ class ACEDataset:
             self.fitting_data["train"] = True
             self.test_data["train"] = False
             joint_df = pd.concat([self.fitting_data, self.test_data], axis=0)
-            joint_df = apply_weights(
-                joint_df, self.weighting_policy_spec, self.ignore_weights
-            )
+            joint_df = apply_weights(joint_df, self.weighting_policy_spec, self.ignore_weights)
             self.fitting_data = joint_df.query("train").reset_index(drop=True)
             self.test_data = joint_df.query("~train").reset_index(drop=True)
             # self.test_data = apply_weights(self.test_data, self.weighting_policy_spec, self.ignore_weights)
@@ -928,7 +887,7 @@ class ACEDataset:
             raise ValueError("Dataset filename is not provided")
         return files_to_load
 
-    def process_dataset(self, df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    def process_dataset(self, df: pd.DataFrame | None) -> pd.DataFrame | None:
         if df is None:
             return
         # check for "ase_atoms", "energy" or "energy_corrected", "forces" columns
@@ -938,9 +897,7 @@ class ACEDataset:
             raise ValueError(f"Dataframe is corrupted: no '{ASE_ATOMS}' column found")
         # check for 'energy' or 'energy_corrected'
         if ENERGY not in df.columns and ENERGY_CORRECTED_COL not in df.columns:
-            raise ValueError(
-                "Column `energy` or `energy_corrected` not found in dataset"
-            )
+            raise ValueError("Column `energy` or `energy_corrected` not found in dataset")
         # check for 'forces'
         if FORCES_COL not in df.columns:
             raise ValueError("Column `forces` not found in dataset")
@@ -969,16 +926,12 @@ class ACEDataset:
 
             if isinstance(self.reference_energy, str):
                 if self.reference_energy in SINGLE_ATOM_ENERGY_DICT:
-                    log.info(
-                        f"Using {self.reference_energy} as presets calculator name"
-                    )
+                    log.info(f"Using {self.reference_energy} as presets calculator name")
                     compute_corrected_energy(df, calculator_name=self.reference_energy)
                 elif self.reference_energy == "auto":
-                    log.info(f"Computing least-square energy shift and correction")
+                    log.info("Computing least-square energy shift and correction")
                     self.reference_energy = compute_shifted_scaled_corrected_energy(df)
-                    log.info(
-                        f"Computed single-atom reference energy: {self.reference_energy}"
-                    )
+                    log.info(f"Computed single-atom reference energy: {self.reference_energy}")
                 else:
                     raise ValueError(
                         f"Unsupported data::reference_energy option ('{self.reference_energy}')."
@@ -1000,9 +953,7 @@ class ACEDataset:
             )
 
         # check ENERGY_CORRECTED_COL is not NAN
-        assert (
-            not df[ENERGY_CORRECTED_COL].isna().any()
-        ), f"{ENERGY_CORRECTED_COL} contains NaNs"
+        assert not df[ENERGY_CORRECTED_COL].isna().any(), f"{ENERGY_CORRECTED_COL} contains NaNs"
 
         # enforce calculation of E_CORRECTED_PER_ATOM_COLUMN to avoid mistakes
         df[E_CORRECTED_PER_ATOM_COLUMN] = df[ENERGY_CORRECTED_COL] / df[NUMBER_OF_ATOMS]
@@ -1021,9 +972,7 @@ class ACEDataset:
         epa_abs_max = df[E_CORRECTED_PER_ATOM_COLUMN].abs().max()
 
         log.info(f"Min/max energy per atom: [{epa_min:.3f}, {epa_max:.3f}] eV/atom")
-        log.info(
-            f"Min/max abs energy per atom: [{epa_abs_min:.3f}, {epa_abs_max:.3f}] eV/atom"
-        )
+        log.info(f"Min/max abs energy per atom: [{epa_abs_min:.3f}, {epa_abs_max:.3f}] eV/atom")
 
         # check energy and forces range!
         if epa_min < -20 or epa_max > 250:

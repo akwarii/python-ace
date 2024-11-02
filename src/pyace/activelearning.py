@@ -1,41 +1,32 @@
-import numpy as np
-import os
-
 from collections import Counter, defaultdict
+from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 from ase import Atoms
 from ase.io.lammpsrun import read_lammps_dump_text
 from maxvolpy.maxvol import maxvol
+from tqdm.auto import tqdm
 
 from pyace.asecalc import PyACECalculator
-from pyace.atomicenvironment import aseatoms_to_atomicenvironment, ACEAtomicEnvironment
-from pyace.basis import BBasisConfiguration, ACEBBasisSet
+from pyace.atomicenvironment import ACEAtomicEnvironment, aseatoms_to_atomicenvironment
+from pyace.basis import ACEBBasisSet, BBasisConfiguration
 from pyace.calculator import ACECalculator
 from pyace.evaluator import ACEBEvaluator
-from typing import Dict, List, Optional, Union, Tuple
 
 
-def simple_tqdm(iterable, **kwargs):
-    return iterable
-
-
-try:
-    from tqdm import tqdm
-except ImportError:
-    tqdm = simple_tqdm
-
-EPSILON = 1e-16
-
-
-def save_active_inverse_set(filename, A_active_inverse_set, elements_name=None):
+def save_active_inverse_set(
+    filename: str,
+    A_active_inverse_set: dict[int, np.ndarray],
+    elements_name: list[str] | None = None,
+) -> None:
     if elements_name is None:
         elements_name = list(map(str, range(len(A_active_inverse_set))))
     with open(filename, "wb") as f:
         np.savez(f, **{elements_name[st]: v for st, v in A_active_inverse_set.items()})
 
 
-def load_active_inverse_set(filename):
+def load_active_inverse_set(filename: str) -> dict[int, np.ndarray]:
     asi_data = np.load(filename)
     elements = sorted(asi_data.keys())
     asi_dict = {i: asi_data[el] for i, el in enumerate(elements)}
@@ -43,12 +34,12 @@ def load_active_inverse_set(filename):
 
 
 def count_number_total_atoms_per_species_type(
-    atomic_env_list: List[ACEAtomicEnvironment],
-) -> Dict[int, int]:
+    atomic_env_list: list[ACEAtomicEnvironment],
+) -> dict[int, int]:
     """
     Helper function to count total number of atoms of each type in dataset
 
-    :param atomic_env_list: List[ACEAtomicEnvironment] -  list of ACEAtomicEnvironment
+    :param atomic_env_list: pd.Series[ACEAtomicEnvironment] -  list of ACEAtomicEnvironment
 
     :return dictionary: species_type => number
     """
@@ -59,12 +50,12 @@ def count_number_total_atoms_per_species_type(
 
 
 def count_number_total_atoms_per_species_type_aseatom(
-    atomic_env_list: List[Atoms], elements_mapper_dict: Dict[str, int]
-) -> Dict[int, int]:
+    atomic_env_list: list[Atoms], elements_mapper_dict: dict[str, int]
+) -> dict[int, int]:
     """
     Helper function to count total number of atoms of each type in dataset
 
-    :param atomic_env_list: List[ACEAtomicEnvironment] -  list of ACEAtomicEnvironment
+    :param atomic_env_list: list[ACEAtomicEnvironment] -  list of ACEAtomicEnvironment
     :param elements_mapper_dict:
 
     :return dictionary: species_type => number
@@ -78,16 +69,16 @@ def count_number_total_atoms_per_species_type_aseatom(
 
 
 def count_number_total_atoms_per_species_type_by_batches(
-    atomic_env_batches: List[List[ACEAtomicEnvironment]],
-) -> Dict[int, int]:
+    atomic_env_batches: list[list[ACEAtomicEnvironment]],
+) -> dict[int, int]:
     """
-    Helper function to count total number of atoms of each type in dataset splitted by batches
+    Helper function to count total number of atoms of each type in dataset by batches
 
-    :param atomic_env_batches: List[List[ACEAtomicEnvironment]] -  list of batches(lists) of ACEAtomicEnvironment
+    :param atomic_env_batches: list[list[ACEAtomicEnvironment]] -  list of batches(lists) of ACEAtomicEnvironment
 
     :return dictionary: species_type => number
     """
-    n_total_atoms_per_species_type = defaultdict(lambda: 0)
+    n_total_atoms_per_species_type = defaultdict(int)
     for ae_batch in atomic_env_batches:
         cnt_current_batch = count_number_total_atoms_per_species_type(ae_batch)
         for k, v in cnt_current_batch.items():
@@ -96,14 +87,14 @@ def count_number_total_atoms_per_species_type_by_batches(
 
 
 def compute_B_projections(
-    bconf: Union[BBasisConfiguration, ACEBBasisSet, PyACECalculator],
-    atomic_env_list: Union[List[Atoms], List[ACEAtomicEnvironment]],
-    structure_ind_list: Optional[List[int]] = None,
-    is_full=False,
-    compute_forces_dict=False,
-    return_structure_ind_dict=False,
-    verbose=False,
-) -> Tuple[Dict[int, np.array], Optional[Dict[int, np.array]]]:
+    bconf: BBasisConfiguration | ACEBBasisSet | PyACECalculator,
+    atomic_env_list: list[Atoms] | list[ACEAtomicEnvironment],
+    structure_ind_list: list[int] | None = None,
+    is_full: bool = False,
+    compute_forces_dict: bool = False,
+    return_structure_ind_dict: bool = False,
+    verbose: bool = False,
+) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
     """
     Function to compute the B-basis projection using basis configuration
     `bconf` for list of atomic environments `atomic_env_list`.
@@ -150,9 +141,7 @@ def compute_B_projections(
     atomic_env_list = convert_to_atomic_env_list(atomic_env_list, bbasis)
 
     # count total number of atoms of each species type in whole dataset atomiv_env_list
-    n_total_atoms_per_species_type = count_number_total_atoms_per_species_type(
-        atomic_env_list
-    )
+    n_total_atoms_per_species_type = count_number_total_atoms_per_species_type(atomic_env_list)
 
     beval = ACEBEvaluator(bbasis)
 
@@ -160,9 +149,7 @@ def compute_B_projections(
 
     # prepare numpy arrays for A0_projections and  structure_ind_dict
     A0_projections_dict = {
-        st: np.zeros(
-            (n_total_atoms_per_species_type[st], n_projections[st]), dtype=np.float64
-        )
+        st: np.zeros((n_total_atoms_per_species_type[st], n_projections[st]), dtype=np.float64)
         for _, st in elements_mapper_dict.items()
     }
 
@@ -178,8 +165,7 @@ def compute_B_projections(
     }
 
     cur_inds = [0] * len(elements_mapper_dict)
-    progress_wrapper = tqdm if verbose else simple_tqdm
-    for struct_ind, ae in progress_wrapper(
+    for struct_ind, ae in tqdm(
         zip(tmp_structure_ind_list, atomic_env_list), total=len(atomic_env_list)
     ):
         calc.compute(ae, compute_projections=True)
@@ -212,7 +198,7 @@ def compute_B_projections(
             return A0_projections_dict
 
 
-def convert_to_bbasis(bconf):
+def convert_to_bbasis(bconf: BBasisConfiguration | ACEBBasisSet | PyACECalculator) -> ACEBBasisSet:
     if isinstance(bconf, BBasisConfiguration):
         bbasis = ACEBBasisSet(bconf)
     elif isinstance(bconf, ACEBBasisSet):
@@ -220,12 +206,14 @@ def convert_to_bbasis(bconf):
     elif isinstance(bconf, PyACECalculator):
         bbasis = bconf.basis
     else:
-        raise ValueError("Unsupported type of `bconf`: {}".format(type(bconf)))
+        raise ValueError(f"Unsupported type of `bconf`: {type(bconf)}")
     return bbasis
 
 
-def convert_to_atomic_env_list(atomic_env_list, pot: ACEBBasisSet):
-    elements_mapper_dict = pot.elements_to_index_map
+def convert_to_atomic_env_list(
+    atomic_env_list: list[Atoms] | pd.Series | ACEAtomicEnvironment, pot: ACEBBasisSet
+):
+    elements_mapper_dict: dict[str, int] = pot.elements_to_index_map
     if isinstance(atomic_env_list, pd.Series):
         atomic_env_list = atomic_env_list.values
     if isinstance(atomic_env_list[0], Atoms):
@@ -238,17 +226,15 @@ def convert_to_atomic_env_list(atomic_env_list, pot: ACEBBasisSet):
             ]
         )
     elif not isinstance(atomic_env_list[0], ACEAtomicEnvironment):
-        raise ValueError(
-            "atomic_env_list should be list of ASE.Atoms or ACEAtomicEnvironment"
-        )
+        raise ValueError("atomic_env_list should be list of ASE.Atoms or ACEAtomicEnvironment")
     return atomic_env_list
 
 
 def extract_reference_forces_dict(
-    ase_atoms_list: List[Atoms],
-    reference_forces_list: List[np.array],
-    elements_mapper_dict: Dict[str, int],
-):
+    ase_atoms_list: list[Atoms],
+    reference_forces_list: list[np.ndarray],
+    elements_mapper_dict: dict[str, int],
+) -> dict[int, np.ndarray]:
     n_total_atoms_per_species_type = count_number_total_atoms_per_species_type_aseatom(
         ase_atoms_list, elements_mapper_dict
     )
@@ -267,13 +253,13 @@ def extract_reference_forces_dict(
     return forces_dict
 
 
-def compute_number_of_functions(pot):
+def compute_number_of_functions(pot: ACEBBasisSet) -> list[int]:
     return [len(b1) + len(b) for b1, b in zip(pot.basis_rank1, pot.basis)]
 
 
 def compute_extrapolation_grade(
-    A0_projections_dict: Dict[int, np.array], A_active_set_inv_dict: Dict[int, np.array]
-) -> Dict[int, np.array]:
+    A0_projections_dict: dict[int, np.ndarray], A_active_set_inv_dict: dict[int, np.ndarray]
+) -> dict[int, np.ndarray]:
     """
     Compute extrapolation grade `gamma` for given dictionary
     of projections `A0_projections_dict` and `A_active_set_inv_dict`
@@ -290,21 +276,21 @@ def compute_extrapolation_grade(
     """
     gamma_dict = {}
     for st in A0_projections_dict.keys():
-        cur_gamma_grade = np.abs(
-            np.dot(A0_projections_dict[st], A_active_set_inv_dict[st])
-        ).max(axis=1)
+        cur_gamma_grade = np.abs(np.dot(A0_projections_dict[st], A_active_set_inv_dict[st])).max(
+            axis=1
+        )
         gamma_dict[st] = cur_gamma_grade
     return gamma_dict
 
 
 def compute_extrapolation_grade_by_batches(
-    bbasis: Union[BBasisConfiguration, ACEBBasisSet],
-    atomic_env_batches: List[List[ACEAtomicEnvironment]],
-    A_active_set_inv_dict: Dict[int, np.array],
-    structure_ind_batches: Optional[List[List[int]]] = None,
-    gamma_threshold: Optional[float] = None,
-    is_full=False,
-    verbose=False,
+    bbasis: BBasisConfiguration | ACEBBasisSet,
+    atomic_env_batches: list[list[ACEAtomicEnvironment]],
+    A_active_set_inv_dict: dict[int, np.ndarray],
+    structure_ind_batches: list[list[int]] | None = None,
+    gamma_threshold: float | None = None,
+    is_full: bool = False,
+    verbose: bool = False,
 ):
     """
     Compute the extrapolation grade of big dataset (`atomic_env_batches`) by batches,
@@ -324,9 +310,7 @@ def compute_extrapolation_grade_by_batches(
         extrapolative_A0_projs_dict (if gamma_threshold is not None),
         extrapolative_structure_ind_dict (if gamma_threshold and structure_ind_batches are not None)
     """
-    cnt_specie_types = count_number_total_atoms_per_species_type_by_batches(
-        atomic_env_batches
-    )
+    cnt_specie_types = count_number_total_atoms_per_species_type_by_batches(atomic_env_batches)
     species_types = sorted(cnt_specie_types.keys())
     gamma_dict = {k: np.zeros((v,)) for k, v in cnt_specie_types.items()}
 
@@ -340,7 +324,7 @@ def compute_extrapolation_grade_by_batches(
     cur_inds = [0] * len(species_types)
     n_batches = len(atomic_env_batches)
     for batch_num in range(n_batches):
-        print("Batch #{}/{}".format(batch_num + 1, n_batches))
+        print(f"Batch #{batch_num + 1}/{n_batches}")
         ae_batch = atomic_env_batches[batch_num]
 
         print("Compute B-projections")
@@ -357,20 +341,16 @@ def compute_extrapolation_grade_by_batches(
         for st in species_types:
             cur_A0_projections = cur_A0_projections_dict[st]
 
-            cur_gamma_grade = np.abs(
-                np.dot(cur_A0_projections, A_active_set_inv_dict[st])
-            ).max(axis=1)
+            cur_gamma_grade = np.abs(np.dot(cur_A0_projections, A_active_set_inv_dict[st])).max(
+                axis=1
+            )
 
-            gamma_dict[st][
-                cur_inds[st] : cur_inds[st] + len(cur_gamma_grade)
-            ] = cur_gamma_grade
+            gamma_dict[st][cur_inds[st] : cur_inds[st] + len(cur_gamma_grade)] = cur_gamma_grade
 
             # keep track of extrapolative structures
             if gamma_threshold is not None:
                 extrapolation_mask = cur_gamma_grade > gamma_threshold
-                extrapolative_A0_projs_dict[st].append(
-                    cur_A0_projections[extrapolation_mask]
-                )
+                extrapolative_A0_projs_dict[st].append(cur_A0_projections[extrapolation_mask])
                 if structure_ind_batches is not None:
                     extrapolative_structure_ind_dict[st].append(
                         cur_structure_ind_dict[st][extrapolation_mask]
@@ -388,26 +368,22 @@ def compute_extrapolation_grade_by_batches(
                 extrapolative_structure_ind_dict[st] = np.hstack(
                     extrapolative_structure_ind_dict[st]
                 )
-            return (
-                gamma_dict,
-                extrapolative_A0_projs_dict,
-                extrapolative_structure_ind_dict,
-            )
 
-        else:
-            return gamma_dict, extrapolative_A0_projs_dict
-    else:
-        return gamma_dict
+            return gamma_dict, extrapolative_A0_projs_dict, extrapolative_structure_ind_dict
+
+        return gamma_dict, extrapolative_A0_projs_dict
+
+    return gamma_dict
 
 
 def compute_active_set(
-    A0_projections_dict: Dict[int, np.array],
-    structure_ind_dict: Optional[Dict[int, np.array]] = None,
+    A0_projections_dict: dict[int, np.ndarray],
+    structure_ind_dict: dict[int, np.ndarray] | None = None,
     tol: float = 1.001,
     max_iters: int = 300,
-    verbose=False,
-    extra_A0_projections_dict: Dict[int, np.array] = None,
-    extra_structure_ind_dict: Optional[Dict[int, np.array]] = None,
+    verbose: bool = False,
+    extra_A0_projections_dict: dict[int, np.ndarray] | None = None,
+    extra_structure_ind_dict: dict[int, np.ndarray] | None = None,
 ):
     """
     Compute active set using MaxVol algorithm
@@ -458,20 +434,19 @@ def compute_active_set(
         shape = cur_A0.shape
         if shape[0] < shape[1]:
             raise ValueError(
-                "Insufficient atomic environments to determine active set for species type {}, "
-                "system is under-determined, projections shape={}".format(st, shape)
+                f"Insufficient atomic environments to determine active set for species type {st}, "
+                f"system is under-determined, projections shape={shape}"
             )
         proj_std = np.std(cur_A0, axis=0)
         zero_proj_columns = np.where(proj_std == 0)[0]
         if len(zero_proj_columns) > 0:
+            epsilon = 1e-16
             if verbose:
                 print(
-                    "{} zero columns are found, add diagonal eps={}".format(
-                        len(zero_proj_columns), EPSILON
-                    )
+                    f"{len(zero_proj_columns)} zero columns are found, add diagonal eps={epsilon}"
                 )
             zero_projs = np.zeros((len(cur_A0), len(zero_proj_columns)))
-            np.fill_diagonal(zero_projs, EPSILON)
+            np.fill_diagonal(zero_projs, epsilon)
             cur_A0[:, zero_proj_columns] += zero_projs
         selected_rows, _ = maxvol(cur_A0, tol=tol, max_iters=max_iters, verbose=verbose)
         cur_A_active_set = cur_A0[selected_rows]
@@ -486,17 +461,17 @@ def compute_active_set(
 
 
 def compute_active_set_by_batches(
-    bbasis: Union[BBasisConfiguration, ACEBBasisSet],
-    atomic_env_list: Union[List[Atoms], List[ACEAtomicEnvironment]],
-    structure_ind_list: Optional[List[int]] = None,
-    n_batches=2,
+    bbasis: BBasisConfiguration | ACEBBasisSet,
+    atomic_env_list: list[Atoms] | list[ACEAtomicEnvironment],
+    structure_ind_list: list[int] | None = None,
+    n_batches: int = 2,
     gamma_tolerance: float = 1.01,
     maxvol_iters: int = 300,
     n_refinement_iter: int = 2,
     save_interim_active_set: bool = False,
-    is_full=False,
-    extra_A_active_set_dict=None,
-    verbose=False,
+    is_full: bool = False,
+    extra_A_active_set_dict: dict[int, np.ndarray] | None = None,
+    verbose: bool = False,
 ):
     """
 
@@ -515,7 +490,7 @@ def compute_active_set_by_batches(
     :param n_refinement_iter: maximum number of refinement iterations (stage 2)
     :param save_interim_active_set: bool = False,
     :param is_full: MaxVol on linear B-projections (false, default) or on full non-linear atomic energy (True)
-    :param extra_A_active_set_dict: Dict[species_type => array (N_atoms x N_B_proj) ] , array with B-basis projections
+    :param extra_A_active_set_dict: dict[species_type => array (N_atoms x N_B_proj) ] , array with B-basis projections
     :param verbose: verbosity flag
 
     :return:
@@ -560,7 +535,7 @@ def compute_active_set_by_batches(
     # n_batches = len(atomic_env_batches)
     for batch_num in range(n_batches):
         if verbose:
-            print("Batch #{}/{}".format(batch_num + 1, n_batches))
+            print(f"Batch #{batch_num + 1}/{n_batches}")
         ae_batch = atomic_env_batches[batch_num]
 
         if verbose:
@@ -657,7 +632,7 @@ def compute_active_set_by_batches(
     for i in range(n_refinement_iter):
         if verbose:
             print()
-            print("Refinement iteration #{}/{}".format(i + 1, n_refinement_iter))
+            print(f"Refinement iteration #{i + 1}/{n_refinement_iter}")
 
         cur_A0_projections_dict = {}
         cur_structure_ind_dict = {}
@@ -665,9 +640,7 @@ def compute_active_set_by_batches(
         for st in species_types:
             if verbose:
                 print(
-                    "Species type: {}, atomic environments outside active set: {}".format(
-                        st, len(extrapolative_A0_projs_dict[st])
-                    )
+                    f"Species type: {st}, atomic environments outside active set: {len(extrapolative_A0_projs_dict[st])}"
                 )
             cur_A0_projections_dict[st] = extrapolative_A0_projs_dict[st]
             cur_structure_ind_dict[st] = extrapolative_structure_ind_dict[st]
@@ -739,7 +712,7 @@ def compute_active_set_by_batches(
                 best_active_sets_dict[st] = cur_A_active_set_dict[st]
                 best_active_sets_si_dict[st] = cur_structure_inds_active_set_dict[st]
                 if verbose:
-                    print("New best gamma({})={}".format(st, best_gamma[st]))
+                    print(f"New best gamma({st})={best_gamma[st]}")
         if verbose:
             print("Current best gamma:", best_gamma)
 
@@ -753,9 +726,7 @@ def compute_active_set_by_batches(
         return best_gamma, best_active_sets_dict
 
 
-def compute_A_active_inverse(
-    A_active_set_dict: Dict[int, np.array]
-) -> Dict[int, np.array]:
+def compute_A_active_inverse(A_active_set_dict: dict[int, np.ndarray]) -> dict[int, np.ndarray]:
     """
     Do the pseudo-inversion of active set matrices for each species type
     :param A_active_set_dict: dict {species_type => active set matrix}
@@ -768,7 +739,7 @@ def compute_A_active_inverse(
 
 # https://github.com/corochann/chainer-pointnet/blob/master/chainer_pointnet/utils/sampling.py
 # LICENSE: MIT
-def l2_norm(x, y):
+def l2_norm(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Calculate l2 norm (distance) of `x` and `y`.
     Args:
         x (numpy.ndarray or cupy): (batch_size, num_point, coord_dim)
@@ -779,8 +750,11 @@ def l2_norm(x, y):
 
 
 def py_farthest_point_sampling_no_batch(
-    pts, n_sample_to_select, initial_idx=None, metrics=l2_norm, verbose=False
-):
+    pts: np.ndarray,
+    n_sample_to_select: int,
+    initial_idx: list[int] | None = None,
+    metrics: Callable = l2_norm,
+) -> np.ndarray:
     """
     Farthest point sampling
     Code referenced from below link by @Graipher
@@ -815,17 +789,7 @@ def py_farthest_point_sampling_no_batch(
     # minimum distances to the sampled farthest point
     min_distances = metrics(farthest_point, pts)
 
-    monitor = lambda x: x
-
-    if verbose:
-        try:
-            import tqdm
-
-            monitor = tqdm.tqdm
-        except ImportError:
-            pass
-
-    for i in monitor(range(n_initial, n_sample_to_select)):
+    for i in tqdm(range(n_initial, n_sample_to_select)):
         indices[i] = np.argmax(min_distances, axis=0)
         farthest_point = pts[indices[i]]
         dist = metrics(farthest_point[None, :], pts)
@@ -834,16 +798,18 @@ def py_farthest_point_sampling_no_batch(
 
 
 def read_extrapolation_data(
-    extrapolation_filename, species_to_element_dict=None, species_type_filename=None
-):
+    extrapolation_filename: str,
+    species_to_element_dict: dict[int, str] | None = None,
+    species_type_filename: str | None = None,
+) -> list[Atoms]:
     with open(extrapolation_filename) as f:
-        dat = read_lammps_dump_text(f, index=slice(None))
+        dat = read_lammps_dump_text(f, index=slice(None))  # type: ignore
 
     if species_type_filename is not None:
         with open(species_type_filename) as f:
-            l = f.readlines()
+            lines = f.readlines()
 
-        elements = l[0].strip().split()
+        elements = lines[0].strip().split()
 
         species_to_element_dict = {i + 1: el for i, el in enumerate(elements)}
     elif species_to_element_dict is None:
