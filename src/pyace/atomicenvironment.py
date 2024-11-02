@@ -1,23 +1,23 @@
-import numpy as np
+import warnings
 
-# get everything from atomic environment
+import numpy as np
 import pandas as pd
+from ase import Atoms, data
+
 from pyace.catomicenvironment import (
     ACEAtomicEnvironment,
-    get_minimal_nn_distance_tp,
-    get_minimal_nn_distance_per_bond_tp,
     build_atomic_env,
+    get_minimal_nn_distance_per_bond_tp,
+    get_minimal_nn_distance_tp,
+    get_nghbrs_tp_atoms,
 )
-from pyace.catomicenvironment import get_nghbrs_tp_atoms
 from pyace.pyneighbor import ACENeighborList
-import warnings
-from ase import Atoms
-from ase import data
+from pyace.utils.utils import deprecated
 
 atomic_numbers_to_element = {v: k for k, v in data.atomic_numbers.items()}
 
 
-def create_cube(dr, cube_side_length):
+def create_cube(dr: float, cube_side_length: float) -> ACEAtomicEnvironment:
     """
     Create a simple cube without pbc. Test function
     """
@@ -25,7 +25,6 @@ def create_cube(dr, cube_side_length):
     posx = np.arange(-cube_side_length / 2, cube_side_length / 2 + dr / 2, dr)
     posy = np.arange(-cube_side_length / 2, cube_side_length / 2 + dr / 2, dr)
     posz = np.arange(-cube_side_length / 2, cube_side_length / 2 + dr / 2, dr)
-    n_atoms = len(posx) * len(posy) * len(posz)
 
     positions = []
     for x in posx:
@@ -43,9 +42,9 @@ def create_cube(dr, cube_side_length):
     return ae
 
 
-def create_linear_chain(natoms, axis=2):
+def create_linear_chain(natoms: int, axis: int = 2) -> ACEAtomicEnvironment:
     """
-    Create a linear chain along partcular axis
+    Create a linear chain along particular axis
 
     Parameters
     ----------
@@ -59,7 +58,7 @@ def create_linear_chain(natoms, axis=2):
 
     positions = []
     for i in range(natoms):
-        pos = [0, 0, 0]
+        pos = [0.0, 0.0, 0.0]
         pos[axis] = i - natoms / 2
         positions.append(pos)
     atoms = Atoms(positions=positions, symbols=["W"] * len(positions))
@@ -72,9 +71,15 @@ def create_linear_chain(natoms, axis=2):
     return ae
 
 
+@deprecated(
+    "aseatoms_to_atomicenvironment_old is deprecated, use aseatoms_to_atomicenvironment instead"
+)
 def aseatoms_to_atomicenvironment_old(
-    atoms, cutoff=9, skin=0, elements_mapper_dict=None
-):
+    atoms: Atoms,
+    cutoff: float = 9.0,
+    skin: float = 0.0,
+    elements_mapper_dict: dict[str, int] | None = None,
+) -> ACEAtomicEnvironment:
     """
     Function to read from a ASE atoms objects
 
@@ -99,7 +104,11 @@ def aseatoms_to_atomicenvironment_old(
     return ae
 
 
-def aseatoms_to_atomicenvironment(atoms, cutoff=9, elements_mapper_dict=None):
+def aseatoms_to_atomicenvironment(
+    atoms: Atoms,
+    cutoff: float = 9.0,
+    elements_mapper_dict: dict[str, int] | None = None,
+) -> ACEAtomicEnvironment:
     """
     Function to read from a ASE atoms objects
 
@@ -124,9 +133,7 @@ def aseatoms_to_atomicenvironment(atoms, cutoff=9, elements_mapper_dict=None):
 
     ae = build_atomic_env(positions_, cell_, species_type_, pbc, cutoff)
 
-    chem_symbs = np.array(
-        [data.chemical_symbols[st] for st in ae.species_type], dtype="S2"
-    )
+    chem_symbs = np.array([data.chemical_symbols[st] for st in ae.species_type], dtype="S2")
     if elements_mapper_dict is None:
         elements_mapper_dict = {el: i for i, el in enumerate(sorted(set(chem_symbs)))}
     else:
@@ -138,15 +145,17 @@ def aseatoms_to_atomicenvironment(atoms, cutoff=9, elements_mapper_dict=None):
     return ae
 
 
-def calculate_minimal_nn_atomic_env(atomic_env):
+def calculate_minimal_nn_atomic_env(atomic_env: ACEAtomicEnvironment) -> float:
     return atomic_env.get_minimal_nn_distance()
 
 
-def calculate_minimal_nn_per_bond_atomic_env(atomic_env):
+def calculate_minimal_nn_per_bond_atomic_env(
+    atomic_env: ACEAtomicEnvironment,
+) -> dict[tuple[int, int], float]:
     return atomic_env.get_minimal_nn_distance_per_bond()
 
 
-def calculate_minimal_nn_tp_atoms(tp_atoms):
+def calculate_minimal_nn_tp_atoms(tp_atoms: dict[str, np.ndarray]) -> float:
     _positions = tp_atoms["_positions"]
     _cell = tp_atoms["_cell"][0]
     _ind_i = tp_atoms["_ind_i"]
@@ -156,7 +165,9 @@ def calculate_minimal_nn_tp_atoms(tp_atoms):
     return get_minimal_nn_distance_tp(_positions, _cell, _ind_i, _ind_j, _offsets)
 
 
-def calculate_minimal_nn_tp_atoms_per_bond(tp_atoms):
+def calculate_minimal_nn_tp_atoms_per_bond(
+    tp_atoms: dict[str, np.ndarray]
+) -> dict[tuple[int, int], float]:
     _positions = tp_atoms["_positions"]
     _cell = tp_atoms["_cell"][0]
     _ind_i = tp_atoms["_ind_i"]
@@ -170,7 +181,7 @@ def calculate_minimal_nn_tp_atoms_per_bond(tp_atoms):
     )
 
 
-def copy_atoms(atoms):
+def copy_atoms(atoms: Atoms) -> Atoms:
     if atoms.get_calculator() is not None:
         calc = atoms.get_calculator()
         new_atoms = atoms.copy()
@@ -181,7 +192,7 @@ def copy_atoms(atoms):
     return new_atoms
 
 
-def enforce_pbc(atoms, cutoff):
+def enforce_pbc(atoms: Atoms, cutoff: float) -> Atoms:
     if (atoms.get_pbc() == 0).all():
         pos = atoms.get_positions()
         max_xyz = np.max(pos, axis=0)
@@ -196,7 +207,9 @@ def enforce_pbc(atoms, cutoff):
     return atoms
 
 
-def generate_tp_atoms(ase_atoms, cutoff=8.7, verbose=False):
+def generate_tp_atoms(
+    ase_atoms: Atoms, cutoff: float = 8.7, verbose: bool = False
+) -> dict[str, np.ndarray] | None:
     energy = ase_atoms.get_potential_energy()
     forces = ase_atoms.get_forces()
     atoms = ase_atoms.copy()
@@ -214,28 +227,28 @@ def generate_tp_atoms(ase_atoms, cutoff=8.7, verbose=False):
 
     env = get_nghbrs_tp_atoms(positions_, cell_, species_type_, pbc, cutoff)
 
-    # _ind_i, _ind_j, _mu_i, _mu_j, _offsets, true[5], scaled_positions[6]
-
-    if env[5] is True:  # successfull
-        cell = cell_.reshape(1, 3, 3)
-        return {
-            "_ind_i": env[0],
-            "_ind_j": env[1],
-            "_mu_i": env[2],
-            "_mu_j": env[3],
-            "_offsets": env[4].astype(np.float64),
-            "_eweights": np.ones((1, 1)),
-            "_fweights": np.ones((len(atoms), 1)),
-            "_energy": np.array(energy).reshape(-1, 1),
-            "_forces": forces.astype(np.float64),
-            "_positions": env[6].astype(np.float64),
-            "_cell": cell.astype(np.float64),
-        }
-    else:
+    if env[5] is False:  # failed
         return None
 
+    cell = cell_.reshape(1, 3, 3)
+    return {
+        "_ind_i": env[0],
+        "_ind_j": env[1],
+        "_mu_i": env[2],
+        "_mu_j": env[3],
+        "_offsets": env[4].astype(np.float64),
+        "_eweights": np.ones((1, 1)),
+        "_fweights": np.ones((len(atoms), 1)),
+        "_energy": np.array(energy).reshape(-1, 1),
+        "_forces": forces.astype(np.float64),
+        "_positions": env[6].astype(np.float64),
+        "_cell": cell.astype(np.float64),
+    }
 
-def calculate_minimal_nn_distance(df: pd.DataFrame, target_column_name="min_distance"):
+
+def calculate_minimal_nn_distance(
+    df: pd.DataFrame, target_column_name: str = "min_distance"
+) -> None:
     if target_column_name in df.columns:
         return
     if "atomic_env" in df.columns:
@@ -245,13 +258,12 @@ def calculate_minimal_nn_distance(df: pd.DataFrame, target_column_name="min_dist
         # computing minimum NN distance per structure from tp_atoms
         df[target_column_name] = df["tp_atoms"].map(calculate_minimal_nn_tp_atoms)
     else:
-        raise ValueError(
-            "Neither `atomic_env` nor `tp_atoms` columns are presented in dataframe"
-        )
+        raise ValueError("Neither `atomic_env` nor `tp_atoms` columns are presented in dataframe")
 
 
 def calculate_minimal_nn_distance_per_bond(
-    df: pd.DataFrame, target_column_name="min_distance_per_bond"
+    df: pd.DataFrame,
+    target_column_name="min_distance_per_bond",
 ):
     """
     Compute minimal distance per-bond, return it as dictionary
@@ -272,32 +284,26 @@ def calculate_minimal_nn_distance_per_bond(
     if "atomic_env" in df.columns:
         # computing minimum NN distance per structure from atomic_env
         df[target_column_name] = df["atomic_env"].map(
-            calculate_minimal_nn_per_bond_atomic_env
+            calculate_minimal_nn_per_bond_atomic_env  # type: ignore
         )
-        min_dist_dict = agg_min_dist_dict()
         # min_dist_dict = {(0,0): 1.23, (0,1): 1.5, ...}  - atomic numbers are used
+        min_dist_dict = agg_min_dist_dict()
     elif "tp_atoms" in df.columns:
         # computing minimum NN distance per structure from tp_atoms
         df[target_column_name] = df["tp_atoms"].map(
-            calculate_minimal_nn_tp_atoms_per_bond
+            calculate_minimal_nn_tp_atoms_per_bond  # type: ignore
         )
-        min_dist_dict = agg_min_dist_dict()
         # min_dist_dict = {(6,6): 1.23, (6,10): 1.5, ...}  - atomic numbers are used
+        min_dist_dict = agg_min_dist_dict()
         atomic_numbers = set()
         for k in min_dist_dict:
             for kk in k:
                 atomic_numbers.add(kk)
         elements = sorted([atomic_numbers_to_element[a] for a in atomic_numbers])
         elements_to_mu = {e: i for i, e in enumerate(elements)}
-        z_to_mu = {
-            z: elements_to_mu[atomic_numbers_to_element[z]] for z in atomic_numbers
-        }
-        min_dist_dict = {
-            (z_to_mu[k[0]], z_to_mu[k[1]]): v for k, v in min_dist_dict.items()
-        }
+        z_to_mu = {z: elements_to_mu[atomic_numbers_to_element[z]] for z in atomic_numbers}
+        min_dist_dict = {(z_to_mu[k[0]], z_to_mu[k[1]]): v for k, v in min_dist_dict.items()}
     else:
-        raise ValueError(
-            "Neither `atomic_env` nor `tp_atoms` columns are presented in dataframe"
-        )
+        raise ValueError("Neither `atomic_env` nor `tp_atoms` columns are presented in dataframe")
 
     return min_dist_dict
