@@ -91,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def get_ase_atoms_energy_forces(atoms: Atoms) -> tuple[Atoms, float, np.ndarray]:
+def get_ase_atoms_properties(atoms: Atoms) -> tuple[Atoms, float, np.ndarray]:
     """
     Extracts ASE atoms, free energy, and forces from the given ASE atoms object.
     This is a helper function to create a clean ASE atoms object from the given
@@ -110,8 +110,9 @@ def get_ase_atoms_energy_forces(atoms: Atoms) -> tuple[Atoms, float, np.ndarray]
 
     free_energy = atoms.get_potential_energy(force_consistent=True)
     forces = atoms.get_forces()
+    stress = atoms.get_stress()
 
-    return cleaned_atoms, free_energy, forces
+    return cleaned_atoms, free_energy, forces, stress
 
 
 def generate_selected_indices(selection: str, n_structures: int) -> list[int]:
@@ -179,12 +180,13 @@ def extract_vasp_data(filename: Path, selection: str = "last") -> dict[str, list
         if index not in selected_index:
             continue
 
-        cleaned_atoms, free_energy, forces = get_ase_atoms_energy_forces(atoms)  # type: ignore
+        cleaned_atoms, free_energy, forces, stress = get_ase_atoms_properties(atoms)  # type: ignore
 
         output["name"].append(f"{filename}##{index}")
         output["ase_atoms"].append(cleaned_atoms)
         output["energy"].append(free_energy)
         output["forces"].append(forces)
+        output["stress"].append(stress)
 
     return output
 
