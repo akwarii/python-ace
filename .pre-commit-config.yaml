@@ -41,7 +41,7 @@ repos:
     rev: v3.19.0
     hooks:
       - id: pyupgrade
-        args: [--py39-plus]
+        args: [--py310-plus]
 
   #TODO uncomment when fixed for pre-commit 4
   # python docstring formatting
