@@ -4,3 +4,4 @@ pandas
 ruamel.yaml
 psutil
 scikit-learn
+tqdm
