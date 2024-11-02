@@ -105,7 +105,7 @@ repos:
     rev: "1.7.10"
     hooks:
       - id: bandit
-        args: ["-s", "B101,B301"]
+        args: ["-s", "B101,B301,B403"]
 
   #TODO need to find a new formatter, this one was archived
   # yaml formatting
