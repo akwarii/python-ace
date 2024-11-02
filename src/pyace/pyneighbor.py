@@ -1,23 +1,62 @@
+from typing import TypeAlias
+
 import numpy as np
+from ase import Atoms
 from ase.neighborlist import NewPrimitiveNeighborList, PrimitiveNeighborList
+
+# NeighborList: TypeAlias = NewPrimitiveNeighborList | PrimitiveNeighborList
 
 
 class ACENeighborList:
-    def __init__(self, cutoff=9, skin=0):
+    def __init__(self, cutoff: float = 9.0, skin: float = 0.0) -> None:
         self.cutoff = cutoff
         self.skin = skin
         self._species_type = []
         self._types_mapper_dict = {}
         self._reset_nl()
 
-    def _reset_nl(self):
+    @property
+    def types_mapper_dict(self):
+        if not self._types_mapper_dict:
+            for i, t in enumerate(sorted(np.unique(self.types))):
+                self._types_mapper_dict[t] = i
+        return self._types_mapper_dict
+
+    @types_mapper_dict.setter
+    def types_mapper_dict(self, new_types_mapper_dict):
+        self._types_mapper_dict = {}
+        els = np.array(list(new_types_mapper_dict.keys()), dtype="S2")
+        inds = np.array(list(new_types_mapper_dict.values()), dtype=int)
+        self._types_mapper_dict = {el: ind for el, ind in zip(els, inds)}
+
+    @property
+    def species_type(self):
+        self._species_type = np.zeros(len(self.types))
+        for i, t in enumerate(self.types):
+            self._species_type[i] = self.types_mapper_dict[t]
+        return self._species_type.astype(int)
+
+    @staticmethod
+    def _suggest_best_neighbour_list_class(
+        atoms: Atoms,
+    ) -> type[PrimitiveNeighborList | NewPrimitiveNeighborList]:
+        if len(atoms) < 8 or np.any(atoms.get_pbc() == 0):
+            return PrimitiveNeighborList
+        else:
+            return NewPrimitiveNeighborList
+
+    def _reset_nl(self) -> None:
         self._ri = []  # coordinates on atom i, i.e. atomic positions
         self.x = []  # coordinates of all neighbors
         self.origins = []  # origin atoms indices for PBC
         self.types = []
-        self.jlists = []  ##list of neighbor indicies for each atom
+        self.jlists = []  # list of neighbor indices for each atom
 
-    def make_neighborlist(self, atoms, neigh_class=None):
+    def make_neighborlist(
+        self,
+        atoms: Atoms,
+        neigh_class: type[NewPrimitiveNeighborList | PrimitiveNeighborList] | None = None,
+    ) -> None:
         # if neigh_class is None, choose best NeighbourListBuilder
         if neigh_class is None:
             neigh_class = self._suggest_best_neighbour_list_class(atoms)
@@ -43,13 +82,11 @@ class ACENeighborList:
         }
 
         for cur_at_ind in range(len(atoms)):
-            cur_at_neigh_indices, cur_at_neigh_offsets = self._nl.get_neighbors(
-                cur_at_ind
-            )
+            cur_at_neigh_indices, cur_at_neigh_offsets = self._nl.get_neighbors(cur_at_ind)
             # extend neigh positions with periodic images
-            cur_at_neigh_rs = np.take(
-                atoms_positions, cur_at_neigh_indices, axis=0
-            ) + np.dot(cur_at_neigh_offsets, atoms_cell)
+            cur_at_neigh_rs = np.take(atoms_positions, cur_at_neigh_indices, axis=0) + np.dot(
+                cur_at_neigh_offsets, atoms_cell
+            )
             cur_at_neigh_types = np.take(atoms_types, cur_at_neigh_indices, axis=0)
 
             cur_at_neighb_list = []
@@ -80,30 +117,3 @@ class ACENeighborList:
             self.x[cur_at_ind] = neigh_r
             self.types[cur_at_ind] = neigh_type
             self.origins[cur_at_ind] = neigh_origin
-
-    def _suggest_best_neighbour_list_class(self, atoms):
-        if len(atoms) < 8 or np.any(atoms.get_pbc() == 0):
-            return PrimitiveNeighborList
-        else:  # else use NewPrimitiveNeighborList
-            return NewPrimitiveNeighborList
-
-    @property
-    def types_mapper_dict(self):
-        if not self._types_mapper_dict:
-            for i, t in enumerate(sorted(np.unique(self.types))):
-                self._types_mapper_dict[t] = i
-        return self._types_mapper_dict
-
-    @types_mapper_dict.setter
-    def types_mapper_dict(self, new_types_mapper_dict):
-        self._types_mapper_dict = {}
-        els = np.array(list(new_types_mapper_dict.keys()), dtype="S2")
-        inds = np.array(list(new_types_mapper_dict.values()), dtype=int)
-        self._types_mapper_dict = {el: ind for el, ind in zip(els, inds)}
-
-    @property
-    def species_type(self):
-        self._species_type = np.zeros(len(self.types))
-        for i, t in enumerate(self.types):
-            self._species_type[i] = self.types_mapper_dict[t]
-        return self._species_type.astype(int)
