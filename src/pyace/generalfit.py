@@ -1,9 +1,9 @@
 import gc
 import json
 import logging
-from collections.abc import Callable
 from datetime import datetime
 from functools import partial
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -164,30 +164,16 @@ class TestLossChangeTooSmallException(StopIteration):
 
 
 class GeneralACEFit:
-    """
-    Main fitting wrapper class
-
-    :param potential_config:  specification of the potential
-                    - configuration dictionary
-                    - YAML with BBasisConfiguration potential configuration
-                    - BBasisConfiguration
-                    - ACEBBasisSet
-    :param fit_config:  specification of fitting (loss function, number of iterations, weighting policy, ...)
-    :param data_config:  training data specification
-    :param backend_config: specification of potential evaluation and fitting backend (pyace / tensorpot)
-                    - dict ['evaluator']
-    """
-
     def __init__(
         self,
         potential_config: dict | str | BBasisConfiguration | ACEBBasisSet,
         fit_config: dict,
         data_config: dict | pd.DataFrame,
         backend_config: dict,
-        cutoff=None,
-        seed=None,
-        callbacks=None,
-    ):
+        cutoff: float | None = None,
+        seed: int | None = None,
+        callbacks: list | tuple | None = None,
+    ) -> None:
         self.early_stopping_occured = None
         self.seed = seed
         if self.seed is not None:
@@ -878,10 +864,8 @@ class GeneralACEFit:
 
 
 def apply_noise(
-    all_coeffs: np.ndarray | list,
-    sigma: float,
-    relative: bool = True,
-) -> np.ndarray:
+    all_coeffs: np.array | list, sigma: float, relative: bool = True
+) -> np.array:
     coeffs = np.array(all_coeffs)
     noise = np.random.randn(*coeffs.shape)
     if relative:
@@ -906,8 +890,7 @@ def set_general_metadata(bbasisconfig: BBasisConfiguration, **kwargs) -> None:
 
 
 def safely_update_bbasisconfiguration_coefficients(
-    coeffs: np.ndarray,
-    config: BBasisConfiguration = None,
+    coeffs: np.array, config: BBasisConfiguration = None
 ) -> None:
     current_coeffs = config.get_all_coeffs()
     for i, c in enumerate(coeffs):
@@ -981,6 +964,5 @@ def plot_ef_distributions(df, suffix=""):
 
         fig.tight_layout()
         fig.savefig(suffix + "ef-distributions.png")
-
     except Exception as e:
         log.error(f"Error while plotting energies/forces distributions: {e}")
