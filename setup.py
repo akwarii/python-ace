@@ -1,10 +1,11 @@
 import os
+import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
-import platform
-from setuptools import Extension, setup, find_packages
+
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.command.install import install
 
@@ -25,7 +26,7 @@ class InstallMaxVolPyLocalPackage(install):
             print("=" * 40)
             print("=" * 16, "WARNING", "=" * 17)
             print("=" * 40)
-            print("Installation of `lib/maxvolpy` return {} code!".format(returncode))
+            print(f"Installation of `lib/maxvolpy` return {returncode} code!")
             print("Active learning/selection of active set will not work!")
 
 
@@ -121,9 +122,7 @@ class CMakeBuild(build_ext):
 
             # Multi-config generators have a different way to specify configs
             if not single_config:
-                cmake_args += [
-                    f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"
-                ]
+                cmake_args += [f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
                 build_args += ["--config", cfg]
 
         if ext.target is not None:
@@ -148,9 +147,7 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
-        subprocess.run(
-            ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
-        )
+        subprocess.run(["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True)
         args = ["cmake", "--build", ".", *build_args]
         subprocess.run(args, cwd=build_temp, check=True)
 
@@ -196,9 +193,7 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
-    package_data={
-        "pyace.data": ["mus_ns_uni_to_rawlsLS_np_rank.pckl", "input_template.yaml"]
-    },
+    package_data={"pyace.data": ["mus_ns_uni_to_rawlsLS_np_rank.pckl", "input_template.yaml"]},
     scripts=[
         "bin/pacemaker",
         "bin/pace_yaml2yace",
@@ -210,5 +205,5 @@ setup(
         "bin/pace_augment",
         "bin/pace_corerep",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
 )
